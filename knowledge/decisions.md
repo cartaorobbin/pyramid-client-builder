@@ -176,3 +176,15 @@ Use this format when adding a new decision:
 **Decision**: When the generator detects versioned endpoints (paths containing a `v<digits>` segment), it creates per-version subdirectories (`v1/`, `v2/`) each with their own `client.py` and `schemas.py`. A root client class aggregates version sub-clients as properties (e.g., `client.v1.list_charges()`). Version sub-clients receive the parent's `requests.Session`, so auth configuration is shared. Non-versioned endpoints (`/`, `/health`) remain as methods on the root client. When no versioned endpoints exist, the flat structure is preserved for backward compatibility.
 
 **Consequences**: Multi-version APIs produce well-organized output with clear separation. Schema names can't conflict across versions since each version has its own `schemas.py`. The root client provides a clean DX: `client.v1.list_charges()`. Backward compatible — plain Pyramid apps without version prefixes generate the same flat output as before.
+
+---
+
+### 2026-03-08 — Tox for multi-version testing and Python >= 3.10
+
+**Status**: Accepted
+
+**Context**: The project declared `requires-python = ">=3.11"` but used no 3.11-specific features. There was no way to verify compatibility across Python versions locally or in CI — the single CI job ran only the default Python.
+
+**Decision**: Lower the minimum Python version to 3.10. Add tox (with `tox-uv` for fast uv-backed environments) to run tests and linting across Python 3.10, 3.11, 3.12, and 3.13. The CI workflow uses a matrix strategy with tox, replacing the single lint-and-test job with separate lint and test jobs. Tox uses `uv-venv-lock-runner` to install from the existing `uv.lock`.
+
+**Consequences**: The project is tested against four Python versions both locally (`tox`) and in CI. Regressions on older or newer Pythons are caught early. The `tox-uv` plugin keeps environment creation fast by reusing uv. Developers can run the full matrix locally with a single `tox` command.
