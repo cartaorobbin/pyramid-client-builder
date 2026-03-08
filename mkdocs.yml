@@ -1,0 +1,5 @@
+site_name: pyramid-client-builder
+theme:
+  name: material
+nav:
+  - Home: index.md
