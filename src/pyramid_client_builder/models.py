@@ -1,36 +1,13 @@
-"""Data models for representing introspected Pyramid endpoints."""
+"""Data models for the client generation pipeline.
+
+Shared introspection models (ParameterInfo, SchemaInfo, SchemaFieldInfo)
+come from pyramid_introspector. This module defines the client-builder-specific
+models that flatten route/view pairs into endpoints and bundle them into a spec.
+"""
 
 from dataclasses import dataclass, field
-from typing import Any
 
-
-@dataclass
-class ParameterInfo:
-    """A single parameter extracted from a route or schema."""
-
-    name: str
-    location: str  # "path", "querystring", "body"
-    required: bool = True
-    type_hint: str = "str"
-    description: str = ""
-
-
-@dataclass
-class SchemaFieldInfo:
-    """A single field in a Marshmallow schema, captured for code generation."""
-
-    name: str
-    field_type: str  # Marshmallow field class name, e.g. "Integer", "String"
-    required: bool = False
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class SchemaInfo:
-    """A Marshmallow schema captured from introspection, ready for generation."""
-
-    name: str
-    fields: list[SchemaFieldInfo] = field(default_factory=list)
+from pyramid_introspector import ParameterInfo, SchemaInfo
 
 
 @dataclass

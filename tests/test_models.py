@@ -1,12 +1,8 @@
 """Tests for pyramid_client_builder.models."""
 
-from pyramid_client_builder.models import (
-    ClientSpec,
-    EndpointInfo,
-    ParameterInfo,
-    SchemaFieldInfo,
-    SchemaInfo,
-)
+from pyramid_introspector import ParameterInfo, SchemaFieldInfo, SchemaInfo
+
+from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
 
 class TestParameterInfo:

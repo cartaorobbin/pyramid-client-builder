@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 
 from jinja2 import Environment, PackageLoader
+from pyramid_introspector import SchemaFieldInfo
 
 from pyramid_client_builder.generator.naming import (
     to_class_name,
@@ -16,7 +17,7 @@ from pyramid_client_builder.generator.naming import (
     to_package_name,
     to_request_attr,
 )
-from pyramid_client_builder.models import ClientSpec, EndpointInfo, SchemaFieldInfo
+from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
 logger = logging.getLogger(__name__)
 

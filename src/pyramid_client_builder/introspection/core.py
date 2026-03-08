@@ -1,18 +1,21 @@
-"""Core introspection orchestrator.
+"""Introspection adapter.
 
-Boots a Pyramid application and coordinates route discovery + Cornice
-enrichment to produce a ClientSpec.
+Delegates route and view discovery to pyramid-introspector, then converts
+the result into the flat EndpointInfo list that the generator expects.
 """
 
 import fnmatch
 import logging
 from typing import Any
 
-from pyramid_client_builder.introspection.cornice import enrich_endpoints_with_cornice
-from pyramid_client_builder.introspection.routes import discover_routes
-from pyramid_client_builder.models import ClientSpec, EndpointInfo, SchemaInfo
+from pyramid_introspector import PyramidIntrospector as UpstreamIntrospector
+from pyramid_introspector import SchemaInfo
+
+from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
 logger = logging.getLogger(__name__)
+
+_CLIENT_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
 
 
 class PyramidIntrospector:
@@ -37,9 +40,9 @@ class PyramidIntrospector:
         Returns:
             A ClientSpec ready for code generation.
         """
-        endpoints = discover_routes(self.registry)
+        routes = UpstreamIntrospector(self.registry).introspect()
 
-        endpoints = enrich_endpoints_with_cornice(self.registry, endpoints)
+        endpoints = _routes_to_endpoints(routes)
 
         endpoints = _drop_non_client_methods(endpoints)
 
@@ -52,7 +55,25 @@ class PyramidIntrospector:
         return ClientSpec(name=name, endpoints=endpoints, schemas=schemas)
 
 
-_CLIENT_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
+def _routes_to_endpoints(routes: list) -> list[EndpointInfo]:
+    """Flatten RouteInfo/ViewInfo hierarchy into a flat EndpointInfo list."""
+    endpoints: list[EndpointInfo] = []
+    for route in routes:
+        for view in route.views:
+            endpoints.append(
+                EndpointInfo(
+                    name=route.name,
+                    path=route.pattern,
+                    method=view.method,
+                    description=view.description,
+                    parameters=list(view.parameters),
+                    request_schema=view.request_schema,
+                    querystring_schema=view.querystring_schema,
+                    response_schema=view.response_schema,
+                    response_schemas=dict(view.response_schemas),
+                )
+            )
+    return endpoints
 
 
 def _drop_non_client_methods(endpoints: list[EndpointInfo]) -> list[EndpointInfo]:

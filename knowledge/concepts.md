@@ -9,8 +9,8 @@ Key domain concepts, terminology, and mental models for this project.
 | **ClientSpec** | The complete metadata describing a generated client: name, endpoints, and configuration prefix. The intermediate representation between introspection and code generation. |
 | **EndpointInfo** | One callable operation: an HTTP method on a specific URL path, with its parameters and description. |
 | **ParameterInfo** | A single input to an endpoint: its name, location (path/query/body), type, and whether it's required. |
-| **Introspection** | The process of booting a Pyramid app and reading its route/view registry to discover endpoints. |
-| **Cornice enrichment** | An optional introspection step that extracts Marshmallow schema metadata from Cornice service definitions, producing richer parameter info (body fields, querystring filters). |
+| **Introspection** | The process of booting a Pyramid app and reading its route/view registry to discover endpoints. Delegated to `pyramid-introspector`, which handles route discovery and Cornice/pycornmarsh enrichment via its extension system. |
+| **Introspection adapter** | The local `introspection/core.py` that calls `pyramid-introspector`, flattens its `RouteInfo`/`ViewInfo` output into `EndpointInfo`, and applies client-builder-specific filtering. |
 | **Code generation** | Rendering Jinja2 templates with a `ClientSpec` to produce Python source files (client class, Pyramid extension, package init). |
 | **Pyramid extension (`includeme`)** | A function that Pyramid calls during configuration to register the client on the request object (e.g., `request.payments_client`). |
 | **Verb detection** | Using NLTK WordNet to identify action verbs at the end of URL paths, enabling method names like `cancel_charge` instead of `create_charge_cancel`. |

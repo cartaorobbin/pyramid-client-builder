@@ -2,18 +2,13 @@
 
 import ast
 import importlib.util
-import sys
-from pathlib import Path
 
 import pytest
+from pyramid_introspector import ParameterInfo
 
 from pyramid_client_builder.generator.core import ClientGenerator
 from pyramid_client_builder.introspection.core import PyramidIntrospector
-from pyramid_client_builder.models import (
-    ClientSpec,
-    EndpointInfo,
-    ParameterInfo,
-)
+from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
 
 @pytest.fixture()

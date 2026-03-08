@@ -140,3 +140,15 @@ Use this format when adding a new decision:
 **Decision**: When `pcm_request` or `pcm_responses` are present in a Cornice service definition's args dict, use them as the primary schema source — they take precedence over the `schema` kwarg (for requests) and the `view_callable.response_schema` attribute (for responses). No dependency on pycornmarsh itself is required; the metadata is read directly from Cornice's `service.definitions`. A new `response_schemas: dict[int, SchemaInfo]` field on `EndpointInfo` stores all per-status-code response schemas; `response_schema` continues to hold the success (2xx) schema for backward compatibility. Error schemas from `response_schemas` are collected into `ClientSpec.schemas` and generated in the client's `schemas.py`.
 
 **Consequences**: Apps using pycornmarsh now generate correct clients with explicit schema mappings. The `pcm_request` body schema may differ from the Cornice `schema` kwarg (the latter is for validation, the former for documentation), and the more explicit `pcm_request` is preferred. Multiple response schemas per status code are captured, enabling future error handling features in the generated client.
+
+---
+
+### 2026-03-08 — Delegate introspection to pyramid-introspector
+
+**Status**: Accepted (supersedes "Introspection via Pyramid's introspector + Cornice")
+
+**Context**: The introspection module (`routes.py`, `cornice.py`, `core.py`) contained ~550 lines of route discovery, Cornice service matching, Marshmallow schema extraction, composite schema unwrapping, and pycornmarsh metadata handling. This logic is general-purpose and useful beyond client generation. It was extracted into a standalone library, `pyramid-introspector`, which provides the same capabilities via an extension system.
+
+**Decision**: Replace the `introspection/routes.py` and `introspection/cornice.py` modules with `pyramid-introspector[cornice]` as a dependency. The local `introspection/core.py` becomes a thin adapter that calls `pyramid_introspector.PyramidIntrospector.introspect()`, flattens the `RouteInfo`/`ViewInfo` hierarchy into flat `EndpointInfo` objects, and applies client-builder-specific post-processing (method filtering, glob patterns, deduplication, schema collection). Shared models (`ParameterInfo`, `SchemaFieldInfo`, `SchemaInfo`) are imported directly from `pyramid_introspector` — no local copies or re-exports.
+
+**Consequences**: ~550 lines of introspection code removed. Route discovery, Cornice enrichment, and the extension system are now `pyramid-introspector`'s responsibility. This project focuses on what only it does: converting introspected metadata into a generated client package. Low-level introspection tests were removed (owned by the upstream library); integration tests that verify the full pipeline remain.

@@ -6,23 +6,18 @@ Introspect Pyramid views and generate a client for the app. The library inspects
 
 ## Components
 
-### Models (`pyramid_client_builder.models`)
+### Models
 
-Data classes that represent the introspected API surface:
+Shared introspection models (`ParameterInfo`, `SchemaFieldInfo`, `SchemaInfo`) are imported directly from `pyramid_introspector`. Client-builder-specific models live in `pyramid_client_builder.models`:
 
-- **`ParameterInfo`** — A single parameter (path, query, body) with name, location, type hint, and whether it's required.
-- **`SchemaFieldInfo`** — A single Marshmallow schema field: name, field type (e.g., `"Integer"`), required flag, and metadata.
-- **`SchemaInfo`** — A captured Marshmallow schema: class name and list of `SchemaFieldInfo`.
-- **`EndpointInfo`** — One HTTP method on one path: route name, path pattern, method, description, list of `ParameterInfo`, optional `request_schema`, `querystring_schema`, `response_schema` (`SchemaInfo` references), and `response_schemas` (dict mapping HTTP status codes to `SchemaInfo`, populated from pycornmarsh `pcm_responses`).
+- **`EndpointInfo`** — One HTTP method on one path: route name, path pattern, method, description, list of `ParameterInfo`, optional `request_schema`, `querystring_schema`, `response_schema` (`SchemaInfo` references), and `response_schemas` (dict mapping HTTP status codes to `SchemaInfo`).
 - **`ClientSpec`** — The full specification for a client: name, list of `EndpointInfo`, deduplicated list of `SchemaInfo`, and the settings prefix for `base_url`.
 
 ### Introspection (`pyramid_client_builder.introspection`)
 
-Boots a Pyramid app from an INI file and reads its route/view registry.
+A thin adapter over `pyramid-introspector` that converts its route/view hierarchy into the flat `EndpointInfo` list the generator expects.
 
-- **`routes.py`** — `discover_routes` walks the Pyramid introspector to extract routes, patterns, HTTP methods, path parameters, and docstrings.
-- **`cornice.py`** — `enrich_endpoints_with_cornice` matches discovered endpoints to Cornice services and extracts Marshmallow schema fields (body/querystring) into `ParameterInfo`. Handles three schema sources, checked in order of precedence: (1) **pycornmarsh metadata** — `pcm_request` dict maps locations (`body`, `querystring`) to explicit schema classes; `pcm_responses` dict maps HTTP status codes to response schema classes; (2) **composite schemas** — location-named `Nested` fields like `body`, `querystring`, `path` automatically unwrapped to extract inner schemas; (3) **flat schemas** — single-location, validator determines body vs querystring. Also captures full `SchemaInfo` for request, querystring, and response schemas. Response schemas are discovered from `pcm_responses` (preferred) or a `response_schema` attribute on the view callable (fallback).
-- **`core.py`** — `PyramidIntrospector` orchestrates the full pipeline: bootstrap → discover routes → enrich with Cornice → filter out non-client methods (HEAD, OPTIONS) → collect unique schemas → return `ClientSpec`.
+- **`core.py`** — `PyramidIntrospector` delegates to `pyramid_introspector.PyramidIntrospector` to discover routes and views (including Cornice and pycornmarsh metadata via the extension system), then flattens `RouteInfo`/`ViewInfo` into `EndpointInfo`. Post-processing: filter out non-client methods (HEAD, OPTIONS), apply include/exclude glob patterns, deduplicate, and collect unique schemas into a `ClientSpec`.
 
 ### Generator (`pyramid_client_builder.generator`)
 
@@ -49,10 +44,14 @@ pclient-build <config.ini> --name <client-name> --output <dir> [--debug]
 ```
 INI file
   → pyramid.paster.bootstrap (boots the WSGI app)
-  → PyramidIntrospector
-      ├── discover_routes() → raw EndpointInfo list
-      ├── enrich_endpoints_with_cornice() → adds body/querystring params
-      └── _drop_non_client_methods() → removes HEAD/OPTIONS
+  → PyramidIntrospector (adapter)
+      ├── pyramid_introspector.PyramidIntrospector.introspect()
+      │     → RouteInfo/ViewInfo list (with Cornice/pycornmarsh extensions)
+      ├── _routes_to_endpoints() → flat EndpointInfo list
+      ├── _drop_non_client_methods() → removes HEAD/OPTIONS
+      ├── _filter_endpoints() → include/exclude glob patterns
+      ├── _deduplicate() → first occurrence per path+method
+      └── _collect_schemas() → unique schemas
   → ClientSpec (endpoints + deduplicated schemas)
   → ClientGenerator
       ├── _annotate_endpoints() → assigns Python method names (with verb detection)
@@ -64,10 +63,9 @@ INI file
 
 | Dependency | Purpose |
 |---|---|
-| `pyramid` | Bootstrap and introspect the target application |
+| `pyramid-introspector[cornice]` | Route/view discovery, Cornice/pycornmarsh schema extraction (brings in `pyramid` and `setuptools` transitively) |
 | `click` | CLI interface |
 | `jinja2` | Template rendering for code generation |
 | `requests` | HTTP transport in the generated client |
 | `marshmallow` | Schema-based serialization/deserialization in the generated client (when schemas are present) |
 | `nltk` | WordNet verb detection for smarter method naming |
-| `setuptools<82` | Provides `pkg_resources` required by Pyramid 2.x |
