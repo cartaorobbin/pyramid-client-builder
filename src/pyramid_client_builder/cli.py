@@ -41,8 +41,14 @@ logger = logging.getLogger(__name__)
     multiple=True,
     help="Glob pattern to exclude routes (can be specified multiple times).",
 )
+@click.option(
+    "--client-version",
+    default="0.1.0",
+    show_default=True,
+    help="Version for the generated client package.",
+)
 @click.option("--debug", is_flag=True, help="Enable debug logging.")
-def pclient_build(ini_file, name, output, include, exclude, debug):
+def pclient_build(ini_file, name, output, include, exclude, client_version, debug):
     """Generate an HTTP client from a Pyramid application's routes.
 
     Boots the Pyramid app from INI_FILE, introspects its routes and Cornice
@@ -86,7 +92,7 @@ def pclient_build(ini_file, name, output, include, exclude, debug):
             )
             raise SystemExit(1)
 
-        generator = ClientGenerator(spec)
+        generator = ClientGenerator(spec, version=client_version)
         package_dir = generator.generate(output)
 
         click.echo(f"Generated {generator.class_name} at {package_dir}", err=True)

@@ -8,6 +8,7 @@ from pyramid_client_builder.generator.naming import (
     to_class_name,
     to_method_name,
     to_package_name,
+    to_project_name,
     to_request_attr,
     to_schema_name,
 )
@@ -39,6 +40,20 @@ class TestToPackageName:
     )
     def test_conversions(self, name, expected):
         assert to_package_name(name) == expected
+
+
+class TestToProjectName:
+
+    @pytest.mark.parametrize(
+        "name, expected",
+        [
+            ("payments", "payments-client"),
+            ("legal_entity", "legal-entity-client"),
+            ("my-service", "my-service-client"),
+        ],
+    )
+    def test_conversions(self, name, expected):
+        assert to_project_name(name) == expected
 
 
 class TestToRequestAttr:

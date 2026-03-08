@@ -19,6 +19,7 @@ from pyramid_client_builder.generator.naming import (
     to_class_name,
     to_method_name,
     to_package_name,
+    to_project_name,
     to_request_attr,
     to_schema_name,
 )
@@ -33,24 +34,27 @@ _TEMPLATES_DIR = package_files("pyramid_client_builder.generator").joinpath("tem
 class ClientGenerator:
     """Generates a Python client package from a ClientSpec."""
 
-    def __init__(self, spec: ClientSpec):
+    def __init__(self, spec: ClientSpec, version: str = "0.1.0"):
         self.spec = spec
+        self.version = version
         self.class_name = to_class_name(spec.name)
         self.package_name = to_package_name(spec.name)
+        self.project_name = to_project_name(spec.name)
         self.request_attr = to_request_attr(spec.name)
         self._env = self._create_jinja_env()
 
     def generate(self, output_dir: str | Path) -> Path:
-        """Write the generated client package to output_dir.
+        """Write the generated client project to output_dir.
 
-        The template directory tree is walked once.  An ``@each(versions)``
-        subdirectory in the tree creates per-version output directories
-        automatically.  When no versioned endpoints exist, the versions
-        dict is empty and the loop creates nothing (flat layout).
+        The template directory tree is walked once.  A ``{{package_name}}``
+        directory in the tree mirrors the Python package, while project-level
+        files (``pyproject.toml``, ``README.md``) sit at the root.  An
+        ``@each(versions)`` subdirectory creates per-version output
+        directories automatically.  When no versioned endpoints exist, the
+        versions dict is empty and the loop creates nothing (flat layout).
         """
         output_path = Path(output_dir)
-        package_dir = output_path / self.package_name
-        package_dir.mkdir(parents=True, exist_ok=True)
+        output_path.mkdir(parents=True, exist_ok=True)
 
         versioned, unversioned = _group_by_version(self.spec.endpoints)
 
@@ -71,17 +75,26 @@ class ClientGenerator:
         self._annotate_endpoints(unversioned)
         unversioned_schemas = _collect_schemas(unversioned)
 
+        has_schemas = bool(unversioned_schemas) or any(
+            v["schemas"] for v in versions_ctx.values()
+        )
+
         context = {
             "spec": self.spec,
             "class_name": self.class_name,
             "package_name": self.package_name,
+            "project_name": self.project_name,
+            "client_version": self.version,
+            "has_schemas": has_schemas,
             "request_attr": self.request_attr,
             "versions": versions_ctx,
             "endpoints": unversioned,
             "schemas": unversioned_schemas,
         }
 
-        render_tree(_TEMPLATES_DIR, package_dir, context, self._env)
+        render_tree(_TEMPLATES_DIR, output_path, context, self._env)
+
+        package_dir = output_path / self.package_name
 
         logger.info(
             "Generated %s with %d endpoints in %s",

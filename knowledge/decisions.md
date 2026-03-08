@@ -212,3 +212,15 @@ Use this format when adding a new decision:
 **Decision**: Make `version.py` the single source of truth for the local version using hatchling's `path` version source (`[tool.hatch.version] path = "src/pyramid_client_builder/version.py"`). Remove the static `version` from `pyproject.toml` in favor of `dynamic = ["version"]`. In the CI publish job, override `version.py` with the version extracted from the GitHub release tag (`v0.5.4` → `0.5.4`) before building. Developers still bump `version.py` locally during development.
 
 **Consequences**: The published package version always matches the GitHub release tag, eliminating version mismatch errors. The version lives in one file locally instead of two. The CI override is a simple `echo` command — no new build plugins or dependencies needed. Developers must remember to bump `version.py` during development, but forgetting is harmless since CI overrides it at publish time.
+
+---
+
+### 2026-03-08 — Generated client as installable Python package
+
+**Status**: Accepted
+
+**Context**: The generated client output was just a Python package directory with source files (`__init__.py`, `client.py`, `ext.py`, `schemas.py`, versioned subdirectories). It could not be installed via `pip install` or published to PyPI because it lacked `pyproject.toml` and other packaging metadata. Users had to manually add packaging files after every regeneration.
+
+**Decision**: Restructure the Jinja2 template tree so `render_tree` outputs a complete project directory, not just the Python package. A `{{package_name}}/` directory template wraps the existing package files, and project-level files (`pyproject.toml.j2`, `README.md.j2`) sit at the template root. The generated `pyproject.toml` uses hatchling as the build backend, declares `requests` as a core dependency, `marshmallow` conditionally (only when schemas exist), and `pyramid` as an optional extra (for `ext.py`). A new `--client-version` CLI option (default `0.1.0`) sets the package version. The `ClientGenerator` accepts a `version` parameter and includes `project_name`, `client_version`, and `has_schemas` in the template context.
+
+**Consequences**: The generated output is immediately installable (`pip install ./generated/`) and publishable to PyPI. No manual packaging steps needed after regeneration. The `--client-version` flag lets build pipelines control the version. Backward compatible — `generate()` still returns the package directory path, all existing tests pass unchanged. The template tree restructure maintains the "template mirrors output" design philosophy.
