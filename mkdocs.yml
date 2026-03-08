@@ -1,5 +1,39 @@
 site_name: pyramid-client-builder
+site_description: Introspect Pyramid views and generate an HTTP client for the app
+site_url: https://cartaorobbin.github.io/pyramid-client-builder/
+repo_url: https://github.com/cartaorobbin/pyramid-client-builder
+repo_name: cartaorobbin/pyramid-client-builder
+
 theme:
   name: material
+  features:
+    - content.code.copy
+    - navigation.sections
+    - navigation.expand
+    - search.suggest
+    - search.highlight
+
 nav:
   - Home: index.md
+  - Getting Started: getting-started.md
+  - CLI Reference: cli-reference.md
+  - Generated Output: generated-output.md
+  - Usage Guide: usage.md
+  - Features: features.md
+  - Development: development.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
