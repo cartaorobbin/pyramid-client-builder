@@ -1,0 +1,1208 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Introspect Pyramid views and generate an HTTP client for the app">
+      
+      
+      
+        <link rel="canonical" href="https://cartaorobbin.github.io/pyramid-client-builder/features/">
+      
+      
+        <link rel="prev" href="../usage/">
+      
+      
+        <link rel="next" href="../development/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+    
+    
+      
+        <title>Features - pyramid-client-builder</title>
+      
+    
+    
+      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#features" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href=".." title="pyramid-client-builder" class="md-header__button md-logo" aria-label="pyramid-client-builder" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            pyramid-client-builder
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Features
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+        <div class="md-search__suggest" data-md-component="search-suggest"></div>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/cartaorobbin/pyramid-client-builder" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cartaorobbin/pyramid-client-builder
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href=".." title="pyramid-client-builder" class="md-nav__button md-logo" aria-label="pyramid-client-builder" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a3 3 0 0 0 3-3 3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3m0 3.54C9.64 9.35 6.5 8 3 8v11c3.5 0 6.64 1.35 9 3.54 2.36-2.19 5.5-3.54 9-3.54V8c-3.5 0-6.64 1.35-9 3.54"/></svg>
+
+    </a>
+    pyramid-client-builder
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/cartaorobbin/pyramid-client-builder" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    cartaorobbin/pyramid-client-builder
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href=".." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Getting Started
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI Reference
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../generated-output/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Generated Output
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Usage Guide
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Features
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#method-naming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method naming
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Method naming">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#collection-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Collection endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#detail-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detail endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verb-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verb detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-api-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-API paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-renaming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema renaming
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema renaming">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#role-suffixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Role suffixes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#renaming-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renaming rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API versioning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API versioning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benefits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#include-exclude-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Include / exclude filtering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cornice-and-pycornmarsh-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cornice and pycornmarsh support
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cornice and pycornmarsh support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#standard-cornice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard Cornice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pycornmarsh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pycornmarsh
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conditional-file-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditional file generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../development/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Development
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#method-naming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Method naming
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Method naming">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#collection-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Collection endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#detail-endpoints" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detail endpoints
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verb-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verb detection
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#non-api-paths" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-API paths
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#schema-renaming" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Schema renaming
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Schema renaming">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#role-suffixes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Role suffixes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#renaming-rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Renaming rules
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        API versioning
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="API versioning">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it works
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#usage" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Usage
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#benefits" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Benefits
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#include-exclude-filtering" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Include / exclude filtering
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cornice-and-pycornmarsh-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cornice and pycornmarsh support
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Cornice and pycornmarsh support">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#standard-cornice" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Standard Cornice
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#pycornmarsh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        pycornmarsh
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conditional-file-generation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conditional file generation
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+<h1 id="features">Features<a class="headerlink" href="#features" title="Permanent link">&para;</a></h1>
+<h2 id="method-naming">Method naming<a class="headerlink" href="#method-naming" title="Permanent link">&para;</a></h2>
+<p>The generator interprets your URL path structure to produce natural Python method names. No annotations or configuration needed — names are derived automatically.</p>
+<h3 id="collection-endpoints">Collection endpoints<a class="headerlink" href="#collection-endpoints" title="Permanent link">&para;</a></h3>
+<p>Paths ending with a resource name represent collections. GET requests use the <code>list_</code> prefix:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Generated name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/charges</code></td>
+<td><code>list_charges()</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/charges</code></td>
+<td><code>create_charge()</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="detail-endpoints">Detail endpoints<a class="headerlink" href="#detail-endpoints" title="Permanent link">&para;</a></h3>
+<p>Paths ending with a path parameter represent a single resource. Names are singularized:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Generated name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/api/v1/charges/{id}</code></td>
+<td><code>get_charge()</code></td>
+</tr>
+<tr>
+<td>PUT</td>
+<td><code>/api/v1/charges/{id}</code></td>
+<td><code>update_charge()</code></td>
+</tr>
+<tr>
+<td>DELETE</td>
+<td><code>/api/v1/charges/{id}</code></td>
+<td><code>delete_charge()</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="verb-detection">Verb detection<a class="headerlink" href="#verb-detection" title="Permanent link">&para;</a></h3>
+<p>Paths ending with an action word use that verb as the method prefix. The generator uses NLTK WordNet to detect verbs, so <code>/charges/{id}/cancel</code> becomes <code>cancel_charge()</code> instead of the naive <code>create_charge_cancel()</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Generated name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/charges/{id}/cancel</code></td>
+<td><code>cancel_charge()</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/charges/{id}/refund</code></td>
+<td><code>refund_charge()</code></td>
+</tr>
+<tr>
+<td>POST</td>
+<td><code>/api/v1/orders/{id}/approve</code></td>
+<td><code>approve_order()</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="non-api-paths">Non-API paths<a class="headerlink" href="#non-api-paths" title="Permanent link">&para;</a></h3>
+<p>Routes without a clear resource structure (e.g., <code>/</code>, <code>/health</code>) fall back to the route name:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Path</th>
+<th>Route name</th>
+<th>Generated name</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GET</td>
+<td><code>/</code></td>
+<td><code>home</code></td>
+<td><code>get_home()</code></td>
+</tr>
+<tr>
+<td>GET</td>
+<td><code>/health</code></td>
+<td><code>health</code></td>
+<td><code>get_health()</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="schema-renaming">Schema renaming<a class="headerlink" href="#schema-renaming" title="Permanent link">&para;</a></h2>
+<p>Server-side schemas are named by domain concept (e.g., <code>ChargeSchema</code>). In the generated client, schemas are renamed by their <strong>usage role</strong> so consumers can tell what they send from what they receive.</p>
+<h3 id="role-suffixes">Role suffixes<a class="headerlink" href="#role-suffixes" title="Permanent link">&para;</a></h3>
+<table>
+<thead>
+<tr>
+<th>Role</th>
+<th>Suffix</th>
+<th>Used for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Request body</td>
+<td><code>RequestSchema</code></td>
+<td>Serializing outgoing POST/PUT bodies</td>
+</tr>
+<tr>
+<td>Response</td>
+<td><code>ResponseSchema</code></td>
+<td>Deserializing incoming responses</td>
+</tr>
+<tr>
+<td>Querystring</td>
+<td><code>QuerySchema</code></td>
+<td>Serializing query parameters</td>
+</tr>
+<tr>
+<td>Error response</td>
+<td><code>ErrorSchema</code></td>
+<td>Error response bodies</td>
+</tr>
+</tbody>
+</table>
+<h3 id="renaming-rules">Renaming rules<a class="headerlink" href="#renaming-rules" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Schemas without a role suffix are renamed based on the endpoint path and usage:<ul>
+<li><code>ChargeSchema</code> on <code>POST /api/v1/charges</code> (request) → <code>ChargesRequestSchema</code></li>
+<li><code>ChargeSchema</code> on <code>GET /api/v1/charges/{id}</code> (response) → <code>ChargeResponseSchema</code></li>
+</ul>
+</li>
+<li>Schemas that already have a recognized suffix (<code>RequestSchema</code>, <code>ResponseSchema</code>, <code>QuerySchema</code>, <code>BodySchema</code>, <code>PathSchema</code>, <code>ErrorSchema</code>) are left unchanged.</li>
+<li>If the same schema would get conflicting names from different endpoints, the original name is preserved.</li>
+</ul>
+<h2 id="api-versioning">API versioning<a class="headerlink" href="#api-versioning" title="Permanent link">&para;</a></h2>
+<p>When your endpoints have version prefixes in their paths (e.g., <code>/api/v1/...</code>, <code>/api/v2/...</code>), the generator produces a versioned output structure.</p>
+<h3 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h3>
+<ol>
+<li>The generator detects <code>v&lt;digits&gt;</code> segments in endpoint paths</li>
+<li>Endpoints are grouped by version</li>
+<li>Each version gets its own subdirectory with a dedicated client and schemas</li>
+<li>A root client aggregates version sub-clients as properties</li>
+</ol>
+<h3 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">client</span> <span class="o">=</span> <span class="n">PaymentsClient</span><span class="p">(</span><span class="n">base_url</span><span class="o">=</span><span class="s2">&quot;http://localhost:6543&quot;</span><span class="p">)</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># Version sub-clients</span>
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="n">charges_v1</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">v1</span><span class="o">.</span><span class="n">list_charges</span><span class="p">()</span>
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">charges_v2</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">v2</span><span class="o">.</span><span class="n">list_charges</span><span class="p">()</span>
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Unversioned endpoints stay on the root</span>
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="n">health</span> <span class="o">=</span> <span class="n">client</span><span class="o">.</span><span class="n">get_health</span><span class="p">()</span>
+</code></pre></div>
+<h3 id="benefits">Benefits<a class="headerlink" href="#benefits" title="Permanent link">&para;</a></h3>
+<ul>
+<li>Schema names can't conflict across versions (each version has its own <code>schemas.py</code>)</li>
+<li>You can evolve your API without breaking the existing generated client</li>
+<li>Auth configuration is shared — set it once on the root client</li>
+</ul>
+<p>When no versioned endpoints are detected, the flat output structure is used instead.</p>
+<h2 id="include-exclude-filtering">Include / exclude filtering<a class="headerlink" href="#include-exclude-filtering" title="Permanent link">&para;</a></h2>
+<p>Control which endpoints are generated using glob patterns:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Only include v1 API routes</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>pclient-build<span class="w"> </span>dev.ini<span class="w"> </span>--name<span class="w"> </span>payments<span class="w"> </span>--output<span class="w"> </span>./gen/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">    </span>--include<span class="w"> </span><span class="s2">&quot;/api/v1/*&quot;</span>
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
+<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Exclude internal and webhook endpoints</span>
+<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>pclient-build<span class="w"> </span>dev.ini<span class="w"> </span>--name<span class="w"> </span>payments<span class="w"> </span>--output<span class="w"> </span>./gen/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span>--exclude<span class="w"> </span><span class="s2">&quot;/api/v1/internal/*&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span>--exclude<span class="w"> </span><span class="s2">&quot;/api/v1/webhooks/*&quot;</span>
+<a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
+<a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Combine both — include first, then exclude from the result</span>
+<a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>pclient-build<span class="w"> </span>dev.ini<span class="w"> </span>--name<span class="w"> </span>payments<span class="w"> </span>--output<span class="w"> </span>./gen/<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="w">    </span>--include<span class="w"> </span><span class="s2">&quot;/api/*&quot;</span><span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="w">    </span>--exclude<span class="w"> </span><span class="s2">&quot;*/internal/*&quot;</span>
+</code></pre></div>
+<p>Patterns are matched against the endpoint's URL path using Python's <code>fnmatch</code> style:</p>
+<ul>
+<li><code>*</code> matches any sequence of characters within a single path segment</li>
+<li><code>?</code> matches any single character</li>
+<li>Multiple <code>--include</code> and <code>--exclude</code> flags can be specified</li>
+</ul>
+<p>When <code>--include</code> is used, only matching endpoints are kept. When <code>--exclude</code> is used, matching endpoints are removed. If both are specified, include is applied first, then exclude.</p>
+<h2 id="cornice-and-pycornmarsh-support">Cornice and pycornmarsh support<a class="headerlink" href="#cornice-and-pycornmarsh-support" title="Permanent link">&para;</a></h2>
+<p>The generator works with both Cornice schema patterns:</p>
+<h3 id="standard-cornice">Standard Cornice<a class="headerlink" href="#standard-cornice" title="Permanent link">&para;</a></h3>
+<p>Schemas declared via the <code>schema</code> kwarg on Cornice decorators:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nd">@service</span><span class="o">.</span><span class="n">post</span><span class="p">(</span><span class="n">schema</span><span class="o">=</span><span class="n">ChargeSchema</span><span class="p">,</span> <span class="n">validators</span><span class="o">=</span><span class="p">(</span><span class="n">colander_body_validator</span><span class="p">,))</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_charge</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="o">...</span>
+</code></pre></div>
+<h3 id="pycornmarsh">pycornmarsh<a class="headerlink" href="#pycornmarsh" title="Permanent link">&para;</a></h3>
+<p>Explicit location-to-schema mapping via <code>pcm_request</code> and per-status-code response schemas via <code>pcm_responses</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nd">@service</span><span class="o">.</span><span class="n">post</span><span class="p">(</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="n">pcm_request</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">body</span><span class="o">=</span><span class="n">ChargeBodySchema</span><span class="p">,</span> <span class="n">querystring</span><span class="o">=</span><span class="n">ChargeQuerySchema</span><span class="p">),</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">pcm_responses</span><span class="o">=</span><span class="p">{</span><span class="mi">200</span><span class="p">:</span> <span class="n">ChargeResponseSchema</span><span class="p">,</span> <span class="mi">400</span><span class="p">:</span> <span class="n">ChargeErrorSchema</span><span class="p">},</span>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="p">)</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="k">def</span><span class="w"> </span><span class="nf">create_charge</span><span class="p">(</span><span class="n">request</span><span class="p">):</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="o">...</span>
+</code></pre></div>
+<p>When both patterns are present, <code>pcm_request</code> takes precedence for request schemas, and <code>pcm_responses</code> takes precedence for response schemas. This gives you more explicit control over the generated client's types.</p>
+<h2 id="conditional-file-generation">Conditional file generation<a class="headerlink" href="#conditional-file-generation" title="Permanent link">&para;</a></h2>
+<p>The generated output adapts to your API:</p>
+<ul>
+<li><strong><code>schemas.py</code></strong> is only created when endpoints have Marshmallow schemas. Plain Pyramid routes without schema declarations still produce a working client — methods return raw <code>response.json()</code>.</li>
+<li><strong>Version subdirectories</strong> only appear when versioned paths are detected.</li>
+<li><strong>Files that would be empty</strong> are skipped entirely (e.g., a version's <code>schemas.py</code> when that version has no schemas).</li>
+</ul>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.code.copy", "navigation.sections", "navigation.expand", "search.suggest", "search.highlight"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>
