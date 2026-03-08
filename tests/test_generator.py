@@ -694,3 +694,109 @@ class TestVersionedStructure:
         root_source = (package_dir / "client.py").read_text()
         assert "self.session = requests.Session()" in root_source
         assert "auth_token" in root_source
+
+
+# ======================================================================
+# Project packaging (pyproject.toml + README.md)
+# ======================================================================
+
+
+class TestProjectPackaging:
+    """Verify the generated output is an installable Python package."""
+
+    def test_generates_pyproject_toml(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        assert (package_dir.parent / "pyproject.toml").exists()
+
+    def test_generates_readme(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        assert (package_dir.parent / "README.md").exists()
+
+    def test_pyproject_contains_project_name(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert 'name = "testapp-client"' in content
+
+    def test_pyproject_contains_default_version(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert 'version = "0.1.0"' in content
+
+    def test_pyproject_custom_version(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, version="2.3.1")
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert 'version = "2.3.1"' in content
+
+    def test_pyproject_depends_on_requests(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert "requests>=" in content
+
+    def test_pyproject_no_marshmallow_without_schemas(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert "marshmallow" not in content
+
+    def test_pyproject_includes_marshmallow_with_schemas(self, tmp_path):
+        schema = SchemaInfo(
+            name="ItemSchema",
+            fields=[SchemaFieldInfo(name="name", field_type="String")],
+        )
+        spec = ClientSpec(
+            name="shop",
+            endpoints=[
+                EndpointInfo(
+                    name="items",
+                    path="/api/v1/items",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="name", location="body", type_hint="str"),
+                    ],
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert "marshmallow>=" in content
+
+    def test_pyproject_has_pyramid_optional_dep(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert "[project.optional-dependencies]" in content
+        assert "pyramid" in content
+
+    def test_pyproject_has_hatchling_build_backend(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert 'build-backend = "hatchling.build"' in content
+
+    def test_pyproject_has_correct_package_ref(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert 'packages = ["testapp_client"]' in content
+
+    def test_readme_contains_package_name(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "README.md").read_text()
+        assert "testapp-client" in content
+        assert "TestappClient" in content
+
+    def test_readme_contains_pyramid_ext_usage(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "README.md").read_text()
+        assert "testapp_client.ext" in content
+        assert "request.testapp_client" in content

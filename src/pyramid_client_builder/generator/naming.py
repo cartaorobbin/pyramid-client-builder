@@ -67,6 +67,16 @@ def to_package_name(name: str) -> str:
     return f"{name.replace('-', '_')}_client"
 
 
+def to_project_name(name: str) -> str:
+    """Convert a client name to a PyPI project name (hyphenated).
+
+    Examples:
+        "payments" -> "payments-client"
+        "legal_entity" -> "legal-entity-client"
+    """
+    return to_package_name(name).replace("_", "-")
+
+
 def to_request_attr(name: str) -> str:
     """Convert a client name to a request attribute name.
 
