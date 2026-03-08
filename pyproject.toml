@@ -1,17 +1,31 @@
 [project]
 name = "pyramid-client-builder"
 version = "0.1.0"
-description = "Introspect Pyramid views and generate a client for the app"
+description = "Introspect Pyramid views and generate an HTTP client for the app"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 license = {text = "MIT"}
+dependencies = [
+    "pyramid>=2.0",
+    "click>=8.0",
+    "jinja2>=3.0",
+    "requests>=2.28",
+    "setuptools<82",
+    "nltk>=3.8",
+]
+
+[project.scripts]
+pclient-build = "pyramid_client_builder.cli:pclient_build"
+
+[project.entry-points."paste.app_factory"]
+example = "tests.example_app:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pyramid_client_builder"]
+packages = ["src/pyramid_client_builder", "tests"]
 
 [tool.ruff]
 src = ["src"]
@@ -22,11 +36,19 @@ select = ["E", "F", "I", "N", "W", "UP", "B", "A", "SIM", "TCH"]
 
 [tool.black]
 line-length = 88
-target-version = ["py312"]
+target-version = ["py311"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
 
 [dependency-groups]
-dev = ["ruff", "black", "pytest", "mkdocs-material"]
+dev = [
+    "ruff",
+    "black",
+    "pytest",
+    "mkdocs-material",
+    "webtest",
+    "cornice",
+    "marshmallow",
+]

@@ -1,0 +1,24 @@
+"""Pyramid extension for {{ spec.name }} client."""
+
+from {{ package_name }}.client import {{ class_name }}
+
+
+def includeme(config):
+    """Register {{ class_name }} on the Pyramid request.
+
+    Usage:
+        config.include('{{ package_name }}.ext')
+
+    Then access via:
+        request.{{ request_attr }}
+    """
+
+    def {{ request_attr }}(request):
+        return {{ class_name }}(
+            base_url=request.registry.settings["{{ spec.settings_prefix }}.base_url"],
+            auth_token=request.registry.settings.get(
+                "{{ spec.settings_prefix }}.auth_token"
+            ),
+        )
+
+    config.add_request_method({{ request_attr }}, name="{{ request_attr }}", reify=True)

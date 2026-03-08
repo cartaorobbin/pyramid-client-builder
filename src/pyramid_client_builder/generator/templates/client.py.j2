@@ -1,0 +1,47 @@
+"""HTTP client for {{ spec.name }}."""
+
+import logging
+
+import requests
+
+logger = logging.getLogger(__name__)
+
+
+class {{ class_name }}:
+    """Auto-generated HTTP client for the {{ spec.name }} Pyramid application."""
+
+    def __init__(self, base_url, auth_token=None, timeout=30):
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self.session = requests.Session()
+        if auth_token:
+            self.session.headers["Authorization"] = f"Bearer {auth_token}"
+{% for endpoint in spec.endpoints %}
+
+    def {{ endpoint.method_name }}(self{{ endpoint | method_signature }}):
+        """{{ endpoint.method }} {{ endpoint | format_doc_path }}
+{% if endpoint.description %}
+        {{ endpoint.description }}
+{% endif %}
+        """
+        url = f"{self.base_url}{{ endpoint | format_url }}"
+{% if endpoint.querystring_parameters %}
+        params = {}
+{% for p in endpoint.querystring_parameters %}
+        if {{ p.name }} is not None:
+            params["{{ p.name }}"] = {{ p.name }}
+{% endfor %}
+{% endif %}
+        response = self.session.{{ endpoint.method | lower }}(
+            url,
+{% if endpoint.has_body %}
+            json=body,
+{% endif %}
+{% if endpoint.querystring_parameters %}
+            params=params,
+{% endif %}
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+        return response.json()
+{% endfor %}
