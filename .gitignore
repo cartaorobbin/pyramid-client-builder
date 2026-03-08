@@ -12,3 +12,5 @@ build/
 site/
 *.egg
 .eggs/
+
+.DS_Store
