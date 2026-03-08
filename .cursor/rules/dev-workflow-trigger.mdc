@@ -1,0 +1,17 @@
+---
+description: Ensures the dev-workflow skill is considered at the start of every chat
+alwaysApply: true
+---
+
+# Dev Workflow Check
+
+At the start of every new conversation, evaluate whether the user's request involves development work such as:
+
+- Implementing a feature or enhancement
+- Fixing a bug
+- Working on a task, issue, or ticket
+- Phrases like "let's work on", "implement", "fix", "build", "add", "create" (in the context of code changes)
+
+If the request matches, read and follow the dev-workflow skill at `.cursor/skills/dev-workflow/SKILL.md` **before** doing anything else.
+
+If the request is clearly non-development (e.g., asking a question, exploring code, creating rules, running tests), skip the workflow.
