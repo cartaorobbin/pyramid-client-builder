@@ -1,6 +1,6 @@
 [project]
 name = "pyramid-client-builder"
-version = "0.5.2"
+version = "0.5.3"
 description = "Introspect Pyramid views and generate an HTTP client for the app"
 readme = "README.md"
 requires-python = ">=3.10"
