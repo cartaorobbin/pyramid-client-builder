@@ -1,16 +1,16 @@
 """Client code generator.
 
 Takes a ClientSpec and renders Jinja2 templates into a Python package
-on disk.  Supports flat output (no API versions) and versioned output
-(per-version subdirectories with shared root client).
+on disk.  Uses a template directory tree that mirrors the output structure.
+An ``@each(versions)`` directory handles per-version subdirectories.
 """
 
 import logging
 import re
+from importlib.resources import files as package_files
 from pathlib import Path
-from types import SimpleNamespace
 
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment
 from pyramid_introspector import SchemaFieldInfo, SchemaInfo
 
 from pyramid_client_builder.generator.naming import (
@@ -22,9 +22,12 @@ from pyramid_client_builder.generator.naming import (
     to_request_attr,
     to_schema_name,
 )
+from pyramid_client_builder.generator.renderer import render_tree
 from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
 logger = logging.getLogger(__name__)
+
+_TEMPLATES_DIR = package_files("pyramid_client_builder.generator").joinpath("templates")
 
 
 class ClientGenerator:
@@ -40,12 +43,10 @@ class ClientGenerator:
     def generate(self, output_dir: str | Path) -> Path:
         """Write the generated client package to output_dir.
 
-        When versioned endpoints (e.g. ``/api/v1/...``) are detected, each
-        version gets its own subdirectory with ``client.py`` and ``schemas.py``.
-        A root client aggregates versions as properties.  Non-versioned
-        endpoints live on the root client directly.
-
-        When no versioned endpoints exist, the flat single-file layout is used.
+        The template directory tree is walked once.  An ``@each(versions)``
+        subdirectory in the tree creates per-version output directories
+        automatically.  When no versioned endpoints exist, the versions
+        dict is empty and the loop creates nothing (flat layout).
         """
         output_path = Path(output_dir)
         package_dir = output_path / self.package_name
@@ -53,21 +54,34 @@ class ClientGenerator:
 
         versioned, unversioned = _group_by_version(self.spec.endpoints)
 
-        if versioned:
-            self._generate_versioned(package_dir, versioned, unversioned)
-        else:
-            self._generate_flat(package_dir)
+        versions_ctx: dict[str, dict] = {}
+        for version in sorted(versioned.keys()):
+            endpoints = versioned[version]
+            _rename_schemas(endpoints)
+            self._annotate_endpoints(endpoints)
+            schemas = _collect_schemas(endpoints)
+            versions_ctx[version] = {
+                "version": version,
+                "version_class_name": _version_class_name(version),
+                "endpoints": endpoints,
+                "schemas": schemas,
+            }
 
-        self._render_template(
-            "ext.py.j2",
-            package_dir / "ext.py",
-            {
-                "spec": self.spec,
-                "class_name": self.class_name,
-                "package_name": self.package_name,
-                "request_attr": self.request_attr,
-            },
-        )
+        _rename_schemas(unversioned)
+        self._annotate_endpoints(unversioned)
+        unversioned_schemas = _collect_schemas(unversioned)
+
+        context = {
+            "spec": self.spec,
+            "class_name": self.class_name,
+            "package_name": self.package_name,
+            "request_attr": self.request_attr,
+            "versions": versions_ctx,
+            "endpoints": unversioned,
+            "schemas": unversioned_schemas,
+        }
+
+        render_tree(_TEMPLATES_DIR, package_dir, context, self._env)
 
         logger.info(
             "Generated %s with %d endpoints in %s",
@@ -77,107 +91,6 @@ class ClientGenerator:
         )
 
         return package_dir
-
-    # ------------------------------------------------------------------
-    # Flat generation (no version directories)
-    # ------------------------------------------------------------------
-
-    def _generate_flat(self, package_dir: Path) -> None:
-        _rename_schemas(self.spec.endpoints)
-        self._annotate_endpoints(self.spec.endpoints)
-        self.spec.schemas = _collect_schemas(self.spec.endpoints)
-
-        context = {
-            "spec": self.spec,
-            "class_name": self.class_name,
-            "package_name": self.package_name,
-            "request_attr": self.request_attr,
-            "versions": [],
-            "unversioned_schemas": self.spec.schemas,
-        }
-
-        self._render_template("__init__.py.j2", package_dir / "__init__.py", context)
-        if self.spec.schemas:
-            self._render_template("schemas.py.j2", package_dir / "schemas.py", context)
-        self._render_template("client.py.j2", package_dir / "client.py", context)
-
-    # ------------------------------------------------------------------
-    # Versioned generation (per-version subdirectories)
-    # ------------------------------------------------------------------
-
-    def _generate_versioned(
-        self,
-        package_dir: Path,
-        versioned: dict[str, list[EndpointInfo]],
-        unversioned: list[EndpointInfo],
-    ) -> None:
-        versions = sorted(versioned.keys())
-
-        for version in versions:
-            endpoints = versioned[version]
-            _rename_schemas(endpoints)
-            self._annotate_endpoints(endpoints)
-            schemas = _collect_schemas(endpoints)
-
-            version_dir = package_dir / version
-            version_dir.mkdir(parents=True, exist_ok=True)
-
-            v_context = {
-                "spec": self.spec,
-                "version": version,
-                "version_class_name": _version_class_name(version),
-                "package_name": self.package_name,
-                "endpoints": endpoints,
-                "schemas": schemas,
-            }
-
-            self._render_template(
-                "version___init__.py.j2",
-                version_dir / "__init__.py",
-                v_context,
-            )
-            if schemas:
-                schema_spec = SimpleNamespace(name=self.spec.name, schemas=schemas)
-                self._render_template(
-                    "schemas.py.j2",
-                    version_dir / "schemas.py",
-                    {"spec": schema_spec},
-                )
-            self._render_template(
-                "version_client.py.j2",
-                version_dir / "client.py",
-                v_context,
-            )
-
-        _rename_schemas(unversioned)
-        self._annotate_endpoints(unversioned)
-        unversioned_schemas = _collect_schemas(unversioned)
-
-        root_context = {
-            "spec": self.spec,
-            "class_name": self.class_name,
-            "package_name": self.package_name,
-            "request_attr": self.request_attr,
-            "versions": versions,
-            "unversioned_endpoints": unversioned,
-            "unversioned_schemas": unversioned_schemas,
-        }
-
-        self._render_template(
-            "__init__.py.j2", package_dir / "__init__.py", root_context
-        )
-        if unversioned_schemas:
-            schema_spec = SimpleNamespace(
-                name=self.spec.name, schemas=unversioned_schemas
-            )
-            self._render_template(
-                "schemas.py.j2",
-                package_dir / "schemas.py",
-                {"spec": schema_spec},
-            )
-        self._render_template(
-            "root_client.py.j2", package_dir / "client.py", root_context
-        )
 
     # ------------------------------------------------------------------
     # Shared helpers
@@ -195,16 +108,8 @@ class ClientGenerator:
             method_name = base_name if count == 0 else f"{base_name}_{count}"
             endpoint.method_name = method_name  # type: ignore[attr-defined]
 
-    def _render_template(
-        self, template_name: str, output_file: Path, context: dict
-    ) -> None:
-        template = self._env.get_template(template_name)
-        content = template.render(**context)
-        output_file.write_text(content + "\n")
-
     def _create_jinja_env(self) -> Environment:
         env = Environment(
-            loader=PackageLoader("pyramid_client_builder.generator", "templates"),
             keep_trailing_newline=True,
             trim_blocks=True,
             lstrip_blocks=True,
