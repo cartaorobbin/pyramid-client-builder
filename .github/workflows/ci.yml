@@ -69,8 +69,7 @@ jobs:
     needs: [lint, test]
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
