@@ -140,7 +140,12 @@ EOF
 )"
 ```
 
-4. Tell the user the PR is ready for review and provide the PR URL.
+4. Update the project knowledge base if the work introduced any new decisions, concepts, or architectural changes:
+   - `knowledge/decisions.md` — add an ADR entry for any new architectural or design decisions
+   - `knowledge/concepts.md` — add any new domain terms, mental models, or invariants
+   - `knowledge/architecture.md` — update if the system overview or component relationships changed
+
+5. Tell the user the PR is ready for review and provide the PR URL.
 
 ## Step 8: Release
 
