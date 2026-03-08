@@ -5,13 +5,13 @@ alwaysApply: true
 
 # Dev Workflow Check
 
-At the start of every new conversation, evaluate whether the user's request involves development work such as:
+At the start of every new conversation, **always** ask the user whether this work should follow the dev-workflow skill.
 
-- Implementing a feature or enhancement
-- Fixing a bug
-- Working on a task, issue, or ticket
-- Phrases like "let's work on", "implement", "fix", "build", "add", "create" (in the context of code changes)
+Use AskQuestion:
 
-If the request matches, read and follow the dev-workflow skill at `.cursor/skills/dev-workflow/SKILL.md` **before** doing anything else.
 
-If the request is clearly non-development (e.g., asking a question, exploring code, creating rules, running tests), skip the workflow.
+If the user says yes, read and follow `.cursor/skills/dev-workflow/SKILL.md` **before** doing anything else.
+
+If the user says no, proceed normally.
+
+**Never skip this question. Never try to auto-detect. Always ask.**
