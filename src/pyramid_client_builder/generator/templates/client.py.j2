@@ -3,10 +3,13 @@
 import logging
 
 import requests
-{% if spec.schemas %}
+{% for version in versions %}
+from {{ package_name }}.{{ version }}.client import {{ version | version_class_name }}
+{% endfor %}
+{% if schemas %}
 
 from {{ package_name }}.schemas import (
-{% for schema in spec.schemas %}
+{% for schema in schemas %}
     {{ schema.name }},
 {% endfor %}
 )
@@ -24,7 +27,10 @@ class {{ class_name }}:
         self.session = requests.Session()
         if auth_token:
             self.session.headers["Authorization"] = f"Bearer {auth_token}"
-{% for endpoint in spec.endpoints %}
+{% for version in versions %}
+        self.{{ version }} = {{ version | version_class_name }}(self.base_url, self.session, self.timeout)
+{% endfor %}
+{% for endpoint in endpoints %}
 
     def {{ endpoint.method_name }}(self{{ endpoint | method_signature }}):
         """{{ endpoint.method }} {{ endpoint | format_doc_path }}

@@ -188,3 +188,15 @@ Use this format when adding a new decision:
 **Decision**: Lower the minimum Python version to 3.10. Add tox (with `tox-uv` for fast uv-backed environments) to run tests and linting across Python 3.10, 3.11, 3.12, and 3.13. The CI workflow uses a matrix strategy with tox, replacing the single lint-and-test job with separate lint and test jobs. Tox uses `uv-venv-lock-runner` to install from the existing `uv.lock`.
 
 **Consequences**: The project is tested against four Python versions both locally (`tox`) and in CI. Regressions on older or newer Pythons are caught early. The `tox-uv` plugin keeps environment creation fast by reusing uv. Developers can run the full matrix locally with a single `tox` command.
+
+---
+
+### 2026-03-08 — Cookiecutter-style template tree rendering with @each loop directive
+
+**Status**: Accepted
+
+**Context**: The generator used explicit `_render_template()` calls for every output file, with separate `_generate_flat` and `_generate_versioned` methods that manually created directories, built per-file contexts, and called the render method. Adding a new file to the generated output required changes in three places: (1) create the Jinja2 template, (2) add a `_render_template()` call in Python, (3) pass the right context. The versioned layout required a Python `for` loop over versions, and conditional files (like `schemas.py` only when schemas exist) were handled by Python `if` statements.
+
+**Decision**: Replace the explicit file-wiring approach with a cookiecutter-inspired template tree renderer. A new `render_tree()` function in `generator/renderer.py` walks a template directory tree that mirrors the output structure, rendering file names and contents through Jinja2. Files that render to whitespace-only are skipped (handling conditional generation). A custom `@each(var)` directive in directory names handles dynamic directory loops: `@each(versions)/` iterates over a context dict, creating one subdirectory per key with merged context. A single template tree handles both flat and versioned layouts — when `versions` is an empty dict, the `@each` loop creates nothing.
+
+**Consequences**: Adding a new file to the generated output = drop a `.j2` file in the template tree (no Python changes). The template directory visually documents the output structure. `core.py` is simplified: `_generate_flat`, `_generate_versioned`, and `_render_template` are replaced by one `render_tree()` call with a unified context. The `@each()` convention is project-specific and new contributors need to learn it. The merged `client.py.j2` uses `{% if versions %}` conditionals to handle both layouts.

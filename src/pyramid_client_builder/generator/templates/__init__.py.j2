@@ -6,7 +6,7 @@ from {{ package_name }}.client import {{ class_name }}
 from {{ package_name }} import {{ version }}
 {% endfor %}
 {% endif %}
-{% if unversioned_schemas %}
+{% if schemas %}
 from {{ package_name }} import schemas
 {% endif %}
 
@@ -17,7 +17,7 @@ __all__ = [
     "{{ version }}",
 {% endfor %}
 {% endif %}
-{% if unversioned_schemas %}
+{% if schemas %}
     "schemas",
 {% endif %}
 ]

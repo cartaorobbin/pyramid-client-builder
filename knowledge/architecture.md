@@ -24,15 +24,14 @@ A thin adapter over `pyramid-introspector` that converts its route/view hierarch
 Turns a `ClientSpec` into Python source files.
 
 - **`naming.py`** — Naming conventions for class, package, method, schema, and attribute names. Uses **NLTK WordNet** to detect verbs at the end of paths so `/charges/{id}/cancel` becomes `cancel_charge` rather than `create_charge_cancel`. Also provides `to_schema_name()` for role-based schema renaming, `needs_schema_rename()` for detecting generic schema names, and `extract_version()` for detecting API version prefixes in paths.
-- **`core.py`** — `ClientGenerator` groups endpoints by API version, renames schemas by role, annotates endpoints with method names, renders Jinja2 templates, and writes the output package. When versioned endpoints are detected, generates per-version subdirectories; otherwise falls back to a flat layout.
-- **`templates/`** — Jinja2 templates:
-  - `schemas.py.j2` — Generated Marshmallow schema classes (only rendered when schemas exist). Reused for both flat and per-version schemas.
-  - `client.py.j2` — The HTTP client class for flat (non-versioned) output.
-  - `root_client.py.j2` — Root client for versioned output. Aggregates version sub-clients as properties and hosts non-versioned endpoint methods.
-  - `version_client.py.j2` — Per-version sub-client. Takes a shared `requests.Session` from the root client.
-  - `version___init__.py.j2` — Per-version package init.
+- **`renderer.py`** — `render_tree()` walks a template directory tree and renders files/directories through Jinja2. Supports an `@each(var)` loop directive in directory names for dynamic repeated directories (e.g., per-version subdirectories). Files that render to whitespace-only are skipped (conditional file generation).
+- **`core.py`** — `ClientGenerator` builds a unified context (endpoints, schemas, versions dict), then calls `render_tree()` once. The template tree mirrors the output structure; no explicit per-file wiring needed.
+- **`templates/`** — Jinja2 template tree that mirrors the output directory structure:
+  - `__init__.py.j2` — Package init with imports. Uses `{% if versions %}` and `{% if schemas %}` for conditional content.
+  - `client.py.j2` — Unified HTTP client class. Handles both flat (all endpoints) and versioned (root client with version sub-client properties + unversioned endpoints) via `{% for version in versions %}` conditionals.
   - `ext.py.j2` — Pyramid `includeme` that registers the client on the request.
-  - `__init__.py.j2` — Package init with imports.
+  - `schemas.py.j2` — Marshmallow schema classes. Wrapped in `{% if schemas %}` guard; skipped when no schemas exist.
+  - `@each(versions)/` — Loop directory: one subdirectory per API version. Contains `__init__.py.j2`, `client.py.j2` (version sub-client), and `schemas.py.j2` (version schemas).
 
 ### CLI (`pyramid_client_builder.cli`)
 
@@ -60,11 +59,9 @@ INI file
       ├── _group_by_version() → splits endpoints into versioned/unversioned
       ├── _rename_schemas() → renames generic schema names by role + path
       ├── _annotate_endpoints() → assigns Python method names (with verb detection)
-      └── Versioned path:
-      │     ├── per version: v{n}/schemas.py, v{n}/client.py, v{n}/__init__.py
-      │     └── root: client.py (version properties), __init__.py, ext.py
-      └── Flat path (no versions):
-            └── schemas.py, client.py, __init__.py, ext.py
+      └── render_tree(templates/, package_dir, context)
+            ├── Root templates → __init__.py, client.py, ext.py, schemas.py (if schemas)
+            └── @each(versions)/ → per version: v{n}/__init__.py, v{n}/client.py, v{n}/schemas.py (if schemas)
   → Output package on disk
 ```
 
