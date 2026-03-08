@@ -58,6 +58,11 @@ jobs:
 
       - uses: astral-sh/setup-uv@v4
 
+      - name: Set version from release tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          echo "__version__ = \"$VERSION\"" > src/pyramid_client_builder/version.py
+
       - name: Build package
         run: uv build
 

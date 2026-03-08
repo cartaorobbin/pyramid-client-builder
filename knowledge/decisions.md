@@ -200,3 +200,15 @@ Use this format when adding a new decision:
 **Decision**: Replace the explicit file-wiring approach with a cookiecutter-inspired template tree renderer. A new `render_tree()` function in `generator/renderer.py` walks a template directory tree that mirrors the output structure, rendering file names and contents through Jinja2. Files that render to whitespace-only are skipped (handling conditional generation). A custom `@each(var)` directive in directory names handles dynamic directory loops: `@each(versions)/` iterates over a context dict, creating one subdirectory per key with merged context. A single template tree handles both flat and versioned layouts — when `versions` is an empty dict, the `@each` loop creates nothing.
 
 **Consequences**: Adding a new file to the generated output = drop a `.j2` file in the template tree (no Python changes). The template directory visually documents the output structure. `core.py` is simplified: `_generate_flat`, `_generate_versioned`, and `_render_template` are replaced by one `render_tree()` call with a unified context. The `@each()` convention is project-specific and new contributors need to learn it. The merged `client.py.j2` uses `{% if versions %}` conditionals to handle both layouts.
+
+---
+
+### 2026-03-08 — GitHub release tag as authoritative package version
+
+**Status**: Accepted
+
+**Context**: The package version was hardcoded in both `pyproject.toml` and `version.py`. When a GitHub release tag (e.g., `v0.5.4`) didn't match the source version (e.g., `0.5.3`), the CI publish job built a wheel with the stale version and PyPI rejected the upload because that version already existed.
+
+**Decision**: Make `version.py` the single source of truth for the local version using hatchling's `path` version source (`[tool.hatch.version] path = "src/pyramid_client_builder/version.py"`). Remove the static `version` from `pyproject.toml` in favor of `dynamic = ["version"]`. In the CI publish job, override `version.py` with the version extracted from the GitHub release tag (`v0.5.4` → `0.5.4`) before building. Developers still bump `version.py` locally during development.
+
+**Consequences**: The published package version always matches the GitHub release tag, eliminating version mismatch errors. The version lives in one file locally instead of two. The CI override is a simple `echo` command — no new build plugins or dependencies needed. Developers must remember to bump `version.py` during development, but forgetting is harmless since CI overrides it at publish time.

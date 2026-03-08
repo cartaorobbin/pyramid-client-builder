@@ -1,6 +1,6 @@
 [project]
 name = "pyramid-client-builder"
-version = "0.5.3"
+dynamic = ["version"]
 description = "Introspect Pyramid views and generate an HTTP client for the app"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,6 +28,9 @@ example = "tests.example_app:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+path = "src/pyramid_client_builder/version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pyramid_client_builder", "tests"]
