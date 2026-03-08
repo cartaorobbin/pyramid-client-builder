@@ -16,6 +16,12 @@ Key domain concepts, terminology, and mental models for this project.
 | **Verb detection** | Using NLTK WordNet to identify action verbs at the end of URL paths, enabling method names like `cancel_charge` instead of `create_charge_cancel`. |
 | **Detail endpoint** | A path that ends with a path parameter (e.g., `/charges/{id}`), representing a single resource. Methods are singularized: `get_charge`. |
 | **Collection endpoint** | A path that ends with a resource name (e.g., `/charges`), representing a list. GET uses `list_` prefix: `list_charges`. |
+| **SchemaInfo** | A captured Marshmallow schema (name + fields) ready for code generation. Attached to endpoints for request body, querystring, or response serialization. |
+| **SchemaFieldInfo** | A single field within a `SchemaInfo`: its name, Marshmallow field type (e.g., `"Integer"`), required flag, and metadata. |
+| **Schema-based serialization** | The generated client uses copies of the server's Marshmallow schemas. `dump()` serializes outgoing requests (mirror of server's `load()`), `load()` deserializes incoming responses (mirror of server's `dump()`). |
+| **pycornmarsh metadata** | An alternative schema declaration pattern using custom Pyramid view predicates (`pcm_request`, `pcm_responses`). Provides explicit location-to-schema mapping and per-status-code response schemas. Takes precedence over Cornice's `schema` kwarg when present. |
+| **pcm_request** | A dict passed to Cornice decorators mapping locations (`"body"`, `"querystring"`) to Marshmallow schema classes. Provides more explicit schema location info than the `schema` kwarg + validator inference pattern. |
+| **pcm_responses** | A dict passed to Cornice decorators mapping HTTP status codes (e.g., `200`, `400`) to Marshmallow schema classes. Enables per-status-code response typing. The first 2xx schema becomes the endpoint's primary `response_schema`. |
 
 ## Mental Models
 
@@ -43,6 +49,8 @@ URL paths encode intent: `/charges` is a collection, `/charges/{id}` is a detail
 - Every generated method maps to exactly one HTTP method on one URL path.
 - Path parameters in the URL become required positional arguments in the method signature.
 - Querystring parameters become optional keyword arguments.
-- Body parameters become a single `body: dict` argument.
-- The generated client never imports from `pyramid-client-builder` at runtime — it's a standalone package that only depends on `requests`.
+- Body parameters become individual keyword arguments; when a schema exists, the body is serialized through `schema.dump()` before sending.
+- Querystring parameters with a schema are serialized through `schema.dump()`; without a schema, they fall back to a raw params dict.
+- Response deserialization uses `schema.load()` when a response schema is declared; otherwise returns raw `response.json()`.
+- The generated client is a standalone package that depends on `requests` and `marshmallow` (when schemas are present).
 - Re-running `pclient-build` with the same inputs produces identical output (deterministic generation).

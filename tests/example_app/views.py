@@ -9,8 +9,15 @@ from pyramid.view import view_config
 
 from tests.example_app.schemas import (
     ChargeRequestSchema,
+    ChargeResponseSchema,
     ChargesQuerySchema,
     InvoiceQuerySchema,
+    RefundRequestSchema,
+    RequestErrorSchema,
+    SimulateBodySchema,
+    SimulateQuerySchema,
+    SimulateRequestSchema,
+    SimulateResponseSchema,
 )
 
 # --- Plain Pyramid views ---
@@ -45,6 +52,9 @@ charges_service = Service(
 def create_charge(request):
     """Create a new charge."""
     return {"id": "ch_123", "status": "created"}
+
+
+create_charge.response_schema = ChargeResponseSchema
 
 
 @charges_service.get(
@@ -98,6 +108,45 @@ invoices_service = Service(
 def list_invoices(request):
     """List invoices for a part."""
     return {"results": [], "total": 0}
+
+
+# --- Cornice service with composite schema (location-aware pattern) ---
+
+refund_service = Service(
+    name="refunds",
+    path="/api/v1/charges/{charge_id}/refund",
+    description="Refund a charge",
+)
+
+
+@refund_service.post(
+    schema=RefundRequestSchema,
+    validators=(marshmallow_validator,),
+)
+def create_refund(request):
+    """Create a refund for a charge."""
+    return {"id": "rf_123", "status": "refunded"}
+
+
+# --- Cornice service with pycornmarsh-style metadata ---
+
+simulate_service = Service(
+    name="simulate",
+    path="/api/v1/financing/simulate",
+    description="Financing simulation",
+)
+
+
+@simulate_service.post(
+    pcm_show="v1",
+    pcm_responses={200: SimulateResponseSchema, 400: RequestErrorSchema},
+    schema=SimulateRequestSchema,
+    pcm_request=dict(body=SimulateBodySchema, querystring=SimulateQuerySchema),
+    validators=(marshmallow_validator,),
+)
+def simulate_financing(request):
+    """Simulate a financing plan."""
+    return {"monthly_payment": 100.0, "total_interest": 200.0, "total_amount": 1200.0}
 
 
 def includeme(config):

@@ -1,5 +1,13 @@
 """Generated client for {{ spec.name }}."""
 
 from {{ package_name }}.client import {{ class_name }}
+{% if spec.schemas %}
+from {{ package_name }} import schemas
+{% endif %}
 
-__all__ = ["{{ class_name }}"]
+__all__ = [
+    "{{ class_name }}",
+{% if spec.schemas %}
+    "schemas",
+{% endif %}
+]

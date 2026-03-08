@@ -1,0 +1,11 @@
+"""Generated Marshmallow schemas for {{ spec.name }}."""
+
+import marshmallow as ma
+{% for schema in spec.schemas %}
+
+
+class {{ schema.name }}(ma.Schema):
+{% for field in schema.fields %}
+    {{ field.name }} = ma.fields.{{ field.field_type }}({{ field | field_kwargs }})
+{% endfor %}
+{% endfor %}

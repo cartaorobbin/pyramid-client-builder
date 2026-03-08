@@ -10,7 +10,7 @@ from typing import Any
 
 from pyramid_client_builder.introspection.cornice import enrich_endpoints_with_cornice
 from pyramid_client_builder.introspection.routes import discover_routes
-from pyramid_client_builder.models import ClientSpec, EndpointInfo
+from pyramid_client_builder.models import ClientSpec, EndpointInfo, SchemaInfo
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,9 @@ class PyramidIntrospector:
 
         endpoints = _deduplicate(endpoints)
 
-        return ClientSpec(name=name, endpoints=endpoints)
+        schemas = _collect_schemas(endpoints)
+
+        return ClientSpec(name=name, endpoints=endpoints, schemas=schemas)
 
 
 _CLIENT_METHODS = {"GET", "POST", "PUT", "PATCH", "DELETE"}
@@ -93,3 +95,23 @@ def _deduplicate(endpoints: list[EndpointInfo]) -> list[EndpointInfo]:
             seen.add(key)
             unique.append(ep)
     return unique
+
+
+def _collect_schemas(endpoints: list[EndpointInfo]) -> list[SchemaInfo]:
+    """Gather all unique schemas referenced by endpoints."""
+    seen: set[str] = set()
+    schemas: list[SchemaInfo] = []
+
+    def _add(schema: SchemaInfo | None) -> None:
+        if schema is not None and schema.name not in seen:
+            seen.add(schema.name)
+            schemas.append(schema)
+
+    for ep in endpoints:
+        _add(ep.request_schema)
+        _add(ep.querystring_schema)
+        _add(ep.response_schema)
+        for schema in ep.response_schemas.values():
+            _add(schema)
+
+    return schemas

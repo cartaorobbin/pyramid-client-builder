@@ -11,16 +11,18 @@ Introspect Pyramid views and generate a client for the app. The library inspects
 Data classes that represent the introspected API surface:
 
 - **`ParameterInfo`** — A single parameter (path, query, body) with name, location, type hint, and whether it's required.
-- **`EndpointInfo`** — One HTTP method on one path: route name, path pattern, method, description, and a list of `ParameterInfo`.
-- **`ClientSpec`** — The full specification for a client: name, list of `EndpointInfo`, and the settings prefix for `base_url`.
+- **`SchemaFieldInfo`** — A single Marshmallow schema field: name, field type (e.g., `"Integer"`), required flag, and metadata.
+- **`SchemaInfo`** — A captured Marshmallow schema: class name and list of `SchemaFieldInfo`.
+- **`EndpointInfo`** — One HTTP method on one path: route name, path pattern, method, description, list of `ParameterInfo`, optional `request_schema`, `querystring_schema`, `response_schema` (`SchemaInfo` references), and `response_schemas` (dict mapping HTTP status codes to `SchemaInfo`, populated from pycornmarsh `pcm_responses`).
+- **`ClientSpec`** — The full specification for a client: name, list of `EndpointInfo`, deduplicated list of `SchemaInfo`, and the settings prefix for `base_url`.
 
 ### Introspection (`pyramid_client_builder.introspection`)
 
 Boots a Pyramid app from an INI file and reads its route/view registry.
 
 - **`routes.py`** — `discover_routes` walks the Pyramid introspector to extract routes, patterns, HTTP methods, path parameters, and docstrings.
-- **`cornice.py`** — `enrich_endpoints_with_cornice` matches discovered endpoints to Cornice services and extracts Marshmallow schema fields (body/querystring) into `ParameterInfo`.
-- **`core.py`** — `PyramidIntrospector` orchestrates the full pipeline: bootstrap → discover routes → enrich with Cornice → filter out non-client methods (HEAD, OPTIONS) → return `ClientSpec`.
+- **`cornice.py`** — `enrich_endpoints_with_cornice` matches discovered endpoints to Cornice services and extracts Marshmallow schema fields (body/querystring) into `ParameterInfo`. Handles three schema sources, checked in order of precedence: (1) **pycornmarsh metadata** — `pcm_request` dict maps locations (`body`, `querystring`) to explicit schema classes; `pcm_responses` dict maps HTTP status codes to response schema classes; (2) **composite schemas** — location-named `Nested` fields like `body`, `querystring`, `path` automatically unwrapped to extract inner schemas; (3) **flat schemas** — single-location, validator determines body vs querystring. Also captures full `SchemaInfo` for request, querystring, and response schemas. Response schemas are discovered from `pcm_responses` (preferred) or a `response_schema` attribute on the view callable (fallback).
+- **`core.py`** — `PyramidIntrospector` orchestrates the full pipeline: bootstrap → discover routes → enrich with Cornice → filter out non-client methods (HEAD, OPTIONS) → collect unique schemas → return `ClientSpec`.
 
 ### Generator (`pyramid_client_builder.generator`)
 
@@ -29,7 +31,8 @@ Turns a `ClientSpec` into Python source files.
 - **`naming.py`** — Naming conventions for class, package, method, and attribute names. Uses **NLTK WordNet** to detect verbs at the end of paths so `/charges/{id}/cancel` becomes `cancel_charge` rather than `create_charge_cancel`.
 - **`core.py`** — `ClientGenerator` annotates endpoints with method names, renders Jinja2 templates, and writes the output package.
 - **`templates/`** — Jinja2 templates:
-  - `client.py.j2` — The HTTP client class with one method per endpoint.
+  - `schemas.py.j2` — Generated Marshmallow schema classes (only rendered when schemas exist).
+  - `client.py.j2` — The HTTP client class with one method per endpoint. Uses `schema.dump()` for request serialization and `schema.load()` for response deserialization when schemas are available.
   - `ext.py.j2` — Pyramid `includeme` that registers the client on the request.
   - `__init__.py.j2` — Package init with imports.
 
@@ -50,10 +53,10 @@ INI file
       ├── discover_routes() → raw EndpointInfo list
       ├── enrich_endpoints_with_cornice() → adds body/querystring params
       └── _drop_non_client_methods() → removes HEAD/OPTIONS
-  → ClientSpec
+  → ClientSpec (endpoints + deduplicated schemas)
   → ClientGenerator
       ├── _annotate_endpoints() → assigns Python method names (with verb detection)
-      └── _render_template() × 3 → writes client.py, ext.py, __init__.py
+      └── _render_template() × 4 → writes schemas.py, client.py, ext.py, __init__.py
   → Output package on disk
 ```
 
@@ -65,5 +68,6 @@ INI file
 | `click` | CLI interface |
 | `jinja2` | Template rendering for code generation |
 | `requests` | HTTP transport in the generated client |
+| `marshmallow` | Schema-based serialization/deserialization in the generated client (when schemas are present) |
 | `nltk` | WordNet verb detection for smarter method naming |
 | `setuptools<82` | Provides `pkg_resources` required by Pyramid 2.x |

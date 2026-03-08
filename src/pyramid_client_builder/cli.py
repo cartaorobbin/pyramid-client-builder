@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 @click.command()
+@click.version_option(package_name="pyramid-client-builder")
 @click.argument("ini_file", type=click.Path(exists=True, readable=True))
 @click.option(
     "--name",

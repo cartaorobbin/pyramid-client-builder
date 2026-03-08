@@ -16,7 +16,7 @@ from pyramid_client_builder.generator.naming import (
     to_package_name,
     to_request_attr,
 )
-from pyramid_client_builder.models import ClientSpec, EndpointInfo
+from pyramid_client_builder.models import ClientSpec, EndpointInfo, SchemaFieldInfo
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +55,10 @@ class ClientGenerator:
         }
 
         self._render_template("__init__.py.j2", package_dir / "__init__.py", context)
+        if self.spec.schemas:
+            self._render_template(
+                "schemas.py.j2", package_dir / "schemas.py", context
+            )
         self._render_template("client.py.j2", package_dir / "client.py", context)
         self._render_template("ext.py.j2", package_dir / "ext.py", context)
 
@@ -100,23 +104,35 @@ class ClientGenerator:
         env.filters["method_signature"] = _method_signature_filter
         env.filters["format_url"] = _format_url_filter
         env.filters["format_doc_path"] = _format_doc_path_filter
+        env.filters["field_kwargs"] = _field_kwargs_filter
+        env.filters["body_dict_literal"] = _body_dict_literal_filter
+        env.filters["qs_dict_literal"] = _qs_dict_literal_filter
         return env
 
 
 def _method_signature_filter(endpoint: EndpointInfo) -> str:
-    """Build a Python method signature string from endpoint parameters."""
-    parts: list[str] = []
+    """Build a Python method signature string from endpoint parameters.
+
+    Required parameters come first (path, then required body), followed
+    by optional parameters (optional body, then querystring) with None
+    defaults.
+    """
+    required: list[str] = []
+    optional: list[str] = []
 
     for p in endpoint.path_parameters:
-        parts.append(f"{p.name}: {p.type_hint}")
+        required.append(f"{p.name}: {p.type_hint}")
 
-    if endpoint.has_body:
-        parts.append("body: dict")
+    for p in endpoint.body_parameters:
+        if p.required:
+            required.append(f"{p.name}: {p.type_hint}")
+        else:
+            optional.append(f"{p.name}: {p.type_hint} | None = None")
 
     for p in endpoint.querystring_parameters:
-        default = "None"
-        parts.append(f"{p.name}: {p.type_hint} | None = {default}")
+        optional.append(f"{p.name}: {p.type_hint} | None = None")
 
+    parts = required + optional
     if not parts:
         return ""
     return ", " + ", ".join(parts)
@@ -138,3 +154,25 @@ def _format_doc_path_filter(endpoint: EndpointInfo) -> str:
     "/api/v1/charges/{charge_id:.*}" -> "/api/v1/charges/{charge_id}"
     """
     return re.sub(r"\{(\w+)(?::.*?)\}", r"{\1}", endpoint.path)
+
+
+def _field_kwargs_filter(field_info: SchemaFieldInfo) -> str:
+    """Render Marshmallow field constructor keyword arguments."""
+    parts: list[str] = []
+    if field_info.required:
+        parts.append("required=True")
+    if field_info.metadata:
+        parts.append(f"metadata={field_info.metadata!r}")
+    return ", ".join(parts)
+
+
+def _body_dict_literal_filter(endpoint: EndpointInfo) -> str:
+    """Build a dict literal string from body parameters for schema.dump()."""
+    pairs = [f'"{p.name}": {p.name}' for p in endpoint.body_parameters]
+    return ", ".join(pairs)
+
+
+def _qs_dict_literal_filter(endpoint: EndpointInfo) -> str:
+    """Build a dict literal string from querystring parameters for schema.dump()."""
+    pairs = [f'"{p.name}": {p.name}' for p in endpoint.querystring_parameters]
+    return ", ".join(pairs)

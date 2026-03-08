@@ -10,6 +10,7 @@ def example_registry():
     """Boot the example app and return its registry."""
     with Configurator(settings={}) as config:
         config.include("cornice")
+        config.include("tests.example_app.predicates")
         config.include("tests.example_app.routes")
         config.include("tests.example_app.views")
         config.scan("tests.example_app.views")

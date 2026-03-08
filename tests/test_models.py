@@ -1,6 +1,12 @@
 """Tests for pyramid_client_builder.models."""
 
-from pyramid_client_builder.models import ClientSpec, EndpointInfo, ParameterInfo
+from pyramid_client_builder.models import (
+    ClientSpec,
+    EndpointInfo,
+    ParameterInfo,
+    SchemaFieldInfo,
+    SchemaInfo,
+)
 
 
 class TestParameterInfo:
@@ -25,6 +31,43 @@ class TestParameterInfo:
         assert param.description == "Amount in cents"
 
 
+class TestSchemaFieldInfo:
+
+    def test_defaults(self):
+        field = SchemaFieldInfo(name="id", field_type="String")
+        assert field.required is False
+        assert field.metadata == {}
+
+    def test_all_fields(self):
+        field = SchemaFieldInfo(
+            name="amount",
+            field_type="Integer",
+            required=True,
+            metadata={"description": "Amount in cents"},
+        )
+        assert field.name == "amount"
+        assert field.field_type == "Integer"
+        assert field.required is True
+        assert field.metadata == {"description": "Amount in cents"}
+
+
+class TestSchemaInfo:
+
+    def test_defaults(self):
+        schema = SchemaInfo(name="ChargeRequestSchema")
+        assert schema.fields == []
+
+    def test_with_fields(self):
+        fields = [
+            SchemaFieldInfo(name="amount", field_type="Integer", required=True),
+            SchemaFieldInfo(name="currency", field_type="String", required=True),
+        ]
+        schema = SchemaInfo(name="ChargeRequestSchema", fields=fields)
+        assert schema.name == "ChargeRequestSchema"
+        assert len(schema.fields) == 2
+        assert schema.fields[0].name == "amount"
+
+
 class TestEndpointInfo:
 
     def test_minimal(self):
@@ -33,6 +76,9 @@ class TestEndpointInfo:
         assert ep.querystring_parameters == []
         assert ep.body_parameters == []
         assert ep.has_body is False
+        assert ep.request_schema is None
+        assert ep.querystring_schema is None
+        assert ep.response_schema is None
 
     def test_path_parameters_filtered(self):
         ep = EndpointInfo(
@@ -88,6 +134,34 @@ class TestEndpointInfo:
         assert len(ep.body_parameters) == 1
         assert len(ep.querystring_parameters) == 1
 
+    def test_schema_references(self):
+        req = SchemaInfo(name="ChargeRequestSchema")
+        qs = SchemaInfo(name="ChargesQuerySchema")
+        resp = SchemaInfo(name="ChargeResponseSchema")
+        ep = EndpointInfo(
+            name="charges",
+            path="/charges",
+            method="POST",
+            request_schema=req,
+            querystring_schema=qs,
+            response_schema=resp,
+        )
+        assert ep.request_schema.name == "ChargeRequestSchema"
+        assert ep.querystring_schema.name == "ChargesQuerySchema"
+        assert ep.response_schema.name == "ChargeResponseSchema"
+
+    def test_response_schemas_default_empty(self):
+        ep = EndpointInfo(name="home", path="/", method="GET")
+        assert ep.response_schemas == {}
+
+    def test_response_schemas_dict(self):
+        success = SchemaInfo(name="SuccessSchema")
+        error = SchemaInfo(name="ErrorSchema")
+        ep = EndpointInfo(name="charges", path="/charges", method="POST")
+        ep.response_schemas = {200: success, 400: error}
+        assert ep.response_schemas[200].name == "SuccessSchema"
+        assert ep.response_schemas[400].name == "ErrorSchema"
+
 
 class TestClientSpec:
 
@@ -95,6 +169,7 @@ class TestClientSpec:
         spec = ClientSpec(name="payments")
         assert spec.settings_prefix == "payments"
         assert spec.endpoints == []
+        assert spec.schemas == []
 
     def test_custom_settings_prefix(self):
         spec = ClientSpec(name="payments", settings_prefix="pay")
@@ -107,3 +182,12 @@ class TestClientSpec:
         ]
         spec = ClientSpec(name="example", endpoints=endpoints)
         assert len(spec.endpoints) == 2
+
+    def test_with_schemas(self):
+        schemas = [
+            SchemaInfo(name="ChargeRequestSchema"),
+            SchemaInfo(name="ChargesQuerySchema"),
+        ]
+        spec = ClientSpec(name="example", schemas=schemas)
+        assert len(spec.schemas) == 2
+        assert spec.schemas[0].name == "ChargeRequestSchema"

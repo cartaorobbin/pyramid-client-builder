@@ -1,6 +1,7 @@
 """Data models for representing introspected Pyramid endpoints."""
 
 from dataclasses import dataclass, field
+from typing import Any
 
 
 @dataclass
@@ -15,6 +16,24 @@ class ParameterInfo:
 
 
 @dataclass
+class SchemaFieldInfo:
+    """A single field in a Marshmallow schema, captured for code generation."""
+
+    name: str
+    field_type: str  # Marshmallow field class name, e.g. "Integer", "String"
+    required: bool = False
+    metadata: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class SchemaInfo:
+    """A Marshmallow schema captured from introspection, ready for generation."""
+
+    name: str
+    fields: list[SchemaFieldInfo] = field(default_factory=list)
+
+
+@dataclass
 class EndpointInfo:
     """A single HTTP endpoint discovered from a Pyramid app."""
 
@@ -23,7 +42,10 @@ class EndpointInfo:
     method: str
     description: str = ""
     parameters: list[ParameterInfo] = field(default_factory=list)
-    response_schema_name: str | None = None
+    request_schema: SchemaInfo | None = None
+    querystring_schema: SchemaInfo | None = None
+    response_schema: SchemaInfo | None = None
+    response_schemas: dict[int, SchemaInfo] = field(default_factory=dict)
 
     @property
     def path_parameters(self) -> list[ParameterInfo]:
@@ -49,6 +71,7 @@ class ClientSpec:
     name: str
     endpoints: list[EndpointInfo] = field(default_factory=list)
     settings_prefix: str = ""
+    schemas: list[SchemaInfo] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.settings_prefix:
