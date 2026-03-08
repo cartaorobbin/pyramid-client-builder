@@ -1,0 +1,76 @@
+"""HTTP client for {{ spec.name }}."""
+
+import logging
+
+import requests
+{% for version in versions %}
+from {{ package_name }}.{{ version }}.client import {{ version | version_class_name }}
+{% endfor %}
+{% if unversioned_schemas %}
+
+from {{ package_name }}.schemas import (
+{% for schema in unversioned_schemas %}
+    {{ schema.name }},
+{% endfor %}
+)
+{% endif %}
+
+logger = logging.getLogger(__name__)
+
+
+class {{ class_name }}:
+    """Auto-generated HTTP client for the {{ spec.name }} Pyramid application."""
+
+    def __init__(self, base_url, auth_token=None, timeout=30):
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self.session = requests.Session()
+        if auth_token:
+            self.session.headers["Authorization"] = f"Bearer {auth_token}"
+{% for version in versions %}
+        self.{{ version }} = {{ version | version_class_name }}(self.base_url, self.session, self.timeout)
+{% endfor %}
+{% for endpoint in unversioned_endpoints %}
+
+    def {{ endpoint.method_name }}(self{{ endpoint | method_signature }}):
+        """{{ endpoint.method }} {{ endpoint | format_doc_path }}
+{% if endpoint.description %}
+        {{ endpoint.description }}
+{% endif %}
+        """
+        url = f"{self.base_url}{{ endpoint | format_url }}"
+{% if endpoint.request_schema %}
+        body = {{ endpoint.request_schema.name }}().dump(
+            { {{ endpoint | body_dict_literal }} }
+        )
+{% elif endpoint.has_body %}
+        body = { {{ endpoint | body_dict_literal }} }
+{% endif %}
+{% if endpoint.querystring_schema %}
+        params = {{ endpoint.querystring_schema.name }}().dump(
+            { {{ endpoint | qs_dict_literal }} }
+        )
+{% elif endpoint.querystring_parameters %}
+        params = {}
+{% for p in endpoint.querystring_parameters %}
+        if {{ p.name }} is not None:
+            params["{{ p.name }}"] = {{ p.name }}
+{% endfor %}
+{% endif %}
+        response = self.session.{{ endpoint.method | lower }}(
+            url,
+{% if endpoint.has_body %}
+            json=body,
+{% endif %}
+{% if endpoint.querystring_parameters or endpoint.querystring_schema %}
+            params=params,
+{% endif %}
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+{% if endpoint.response_schema %}
+        return {{ endpoint.response_schema.name }}().load(response.json())
+{% else %}
+        return response.json()
+{% endif %}
+{% endfor %}

@@ -1,13 +1,23 @@
 """Generated client for {{ spec.name }}."""
 
 from {{ package_name }}.client import {{ class_name }}
-{% if spec.schemas %}
+{% if versions %}
+{% for version in versions %}
+from {{ package_name }} import {{ version }}
+{% endfor %}
+{% endif %}
+{% if unversioned_schemas %}
 from {{ package_name }} import schemas
 {% endif %}
 
 __all__ = [
     "{{ class_name }}",
-{% if spec.schemas %}
+{% if versions %}
+{% for version in versions %}
+    "{{ version }}",
+{% endfor %}
+{% endif %}
+{% if unversioned_schemas %}
     "schemas",
 {% endif %}
 ]

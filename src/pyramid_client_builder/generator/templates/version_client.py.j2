@@ -1,0 +1,66 @@
+"""{{ version }} HTTP client for {{ spec.name }}."""
+
+import logging
+{% if schemas %}
+
+from {{ package_name }}.{{ version }}.schemas import (
+{% for schema in schemas %}
+    {{ schema.name }},
+{% endfor %}
+)
+{% endif %}
+
+logger = logging.getLogger(__name__)
+
+
+class {{ version_class_name }}:
+    """{{ version }} endpoints for the {{ spec.name }} Pyramid application."""
+
+    def __init__(self, base_url, session, timeout):
+        self.base_url = base_url
+        self.session = session
+        self.timeout = timeout
+{% for endpoint in endpoints %}
+
+    def {{ endpoint.method_name }}(self{{ endpoint | method_signature }}):
+        """{{ endpoint.method }} {{ endpoint | format_doc_path }}
+{% if endpoint.description %}
+        {{ endpoint.description }}
+{% endif %}
+        """
+        url = f"{self.base_url}{{ endpoint | format_url }}"
+{% if endpoint.request_schema %}
+        body = {{ endpoint.request_schema.name }}().dump(
+            { {{ endpoint | body_dict_literal }} }
+        )
+{% elif endpoint.has_body %}
+        body = { {{ endpoint | body_dict_literal }} }
+{% endif %}
+{% if endpoint.querystring_schema %}
+        params = {{ endpoint.querystring_schema.name }}().dump(
+            { {{ endpoint | qs_dict_literal }} }
+        )
+{% elif endpoint.querystring_parameters %}
+        params = {}
+{% for p in endpoint.querystring_parameters %}
+        if {{ p.name }} is not None:
+            params["{{ p.name }}"] = {{ p.name }}
+{% endfor %}
+{% endif %}
+        response = self.session.{{ endpoint.method | lower }}(
+            url,
+{% if endpoint.has_body %}
+            json=body,
+{% endif %}
+{% if endpoint.querystring_parameters or endpoint.querystring_schema %}
+            params=params,
+{% endif %}
+            timeout=self.timeout,
+        )
+        response.raise_for_status()
+{% if endpoint.response_schema %}
+        return {{ endpoint.response_schema.name }}().load(response.json())
+{% else %}
+        return response.json()
+{% endif %}
+{% endfor %}

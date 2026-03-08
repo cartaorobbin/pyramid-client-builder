@@ -1,7 +1,6 @@
 """Tests for pyramid_client_builder.cli."""
 
 import ast
-from pathlib import Path
 
 from click.testing import CliRunner
 
@@ -16,8 +15,10 @@ class TestPclientBuild:
             pclient_build,
             [
                 "tests/example_app/example.ini",
-                "--name", "example",
-                "--output", str(tmp_path),
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
             ],
         )
         assert result.exit_code == 0, result.output
@@ -33,8 +34,10 @@ class TestPclientBuild:
             pclient_build,
             [
                 "tests/example_app/example.ini",
-                "--name", "example",
-                "--output", str(tmp_path),
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
             ],
         )
         assert result.exit_code == 0, result.output
@@ -48,8 +51,10 @@ class TestPclientBuild:
             pclient_build,
             [
                 "tests/example_app/example.ini",
-                "--name", "example",
-                "--output", str(tmp_path),
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
                 "--debug",
             ],
         )
@@ -63,7 +68,8 @@ class TestPclientBuild:
             pclient_build,
             [
                 "tests/example_app/example.ini",
-                "--output", str(tmp_path),
+                "--output",
+                str(tmp_path),
             ],
         )
         assert result.exit_code != 0
@@ -74,7 +80,8 @@ class TestPclientBuild:
             pclient_build,
             [
                 "tests/example_app/example.ini",
-                "--name", "example",
+                "--name",
+                "example",
             ],
         )
         assert result.exit_code != 0
@@ -85,8 +92,10 @@ class TestPclientBuild:
             pclient_build,
             [
                 "nonexistent.ini",
-                "--name", "example",
-                "--output", str(tmp_path),
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
             ],
         )
         assert result.exit_code != 0
@@ -97,9 +106,12 @@ class TestPclientBuild:
             pclient_build,
             [
                 "tests/example_app/example.ini",
-                "--name", "filtered",
-                "--output", str(tmp_path),
-                "--include", "/api/v1/charges*",
+                "--name",
+                "filtered",
+                "--output",
+                str(tmp_path),
+                "--include",
+                "/api/v1/charges*",
                 "--debug",
             ],
         )
@@ -112,9 +124,12 @@ class TestPclientBuild:
             pclient_build,
             [
                 "tests/example_app/example.ini",
-                "--name", "filtered",
-                "--output", str(tmp_path),
-                "--exclude", "/api/v1/invoices",
+                "--name",
+                "filtered",
+                "--output",
+                str(tmp_path),
+                "--exclude",
+                "/api/v1/invoices",
                 "--debug",
             ],
         )

@@ -1,7 +1,6 @@
 """Shared fixtures for pyramid-client-builder tests."""
 
 import pytest
-from pyramid import testing
 from pyramid.config import Configurator
 
 

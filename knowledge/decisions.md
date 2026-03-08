@@ -152,3 +152,27 @@ Use this format when adding a new decision:
 **Decision**: Replace the `introspection/routes.py` and `introspection/cornice.py` modules with `pyramid-introspector[cornice]` as a dependency. The local `introspection/core.py` becomes a thin adapter that calls `pyramid_introspector.PyramidIntrospector.introspect()`, flattens the `RouteInfo`/`ViewInfo` hierarchy into flat `EndpointInfo` objects, and applies client-builder-specific post-processing (method filtering, glob patterns, deduplication, schema collection). Shared models (`ParameterInfo`, `SchemaFieldInfo`, `SchemaInfo`) are imported directly from `pyramid_introspector` — no local copies or re-exports.
 
 **Consequences**: ~550 lines of introspection code removed. Route discovery, Cornice enrichment, and the extension system are now `pyramid-introspector`'s responsibility. This project focuses on what only it does: converting introspected metadata into a generated client package. Low-level introspection tests were removed (owned by the upstream library); integration tests that verify the full pipeline remain.
+
+---
+
+### 2026-03-08 — Role-based schema renaming
+
+**Status**: Accepted
+
+**Context**: Server-side schemas often have generic names like `ChargeSchema` that don't communicate whether they're used for requests, responses, or querystrings. In the generated client, `ChargeSchema` is ambiguous — the consumer doesn't know if it's what they send or what they receive.
+
+**Decision**: The generator renames schemas based on their usage role and the endpoint's URL path. Schemas whose names don't already end with a recognized role suffix (`RequestSchema`, `ResponseSchema`, `QuerySchema`, `BodySchema`, `PathSchema`, `ErrorSchema`) are renamed to `{Resource}{Role}Schema`, where the resource name is derived from the endpoint's path segments (PascalCase, stripped of API prefixes and path parameters). For example, `ChargeSchema` used as `request_schema` on `POST /api/v1/charges` becomes `ChargesRequestSchema`. Schemas that already have a clear role suffix are left unchanged. If the same schema would get conflicting names from different endpoints, the original name is preserved.
+
+**Consequences**: Generated schema names clearly communicate their role in the client. Consumers can distinguish request schemas from response schemas at a glance. The renaming is deterministic and predictable. Schemas with explicit role naming on the server are unaffected.
+
+---
+
+### 2026-03-08 — Versioned client output directories
+
+**Status**: Accepted
+
+**Context**: Many Pyramid/Cornice APIs version their endpoints via URL prefixes (e.g., `/api/v1/charges`, `/api/v2/charges`). The flat generated client put all endpoints and schemas in a single `client.py` and `schemas.py`, making it hard to organize multi-version APIs and causing potential schema name conflicts across versions.
+
+**Decision**: When the generator detects versioned endpoints (paths containing a `v<digits>` segment), it creates per-version subdirectories (`v1/`, `v2/`) each with their own `client.py` and `schemas.py`. A root client class aggregates version sub-clients as properties (e.g., `client.v1.list_charges()`). Version sub-clients receive the parent's `requests.Session`, so auth configuration is shared. Non-versioned endpoints (`/`, `/health`) remain as methods on the root client. When no versioned endpoints exist, the flat structure is preserved for backward compatibility.
+
+**Consequences**: Multi-version APIs produce well-organized output with clear separation. Schema names can't conflict across versions since each version has its own `schemas.py`. The root client provides a clean DX: `client.v1.list_charges()`. Backward compatible — plain Pyramid apps without version prefixes generate the same flat output as before.

@@ -22,6 +22,10 @@ Key domain concepts, terminology, and mental models for this project.
 | **pycornmarsh metadata** | An alternative schema declaration pattern using custom Pyramid view predicates (`pcm_request`, `pcm_responses`). Provides explicit location-to-schema mapping and per-status-code response schemas. Takes precedence over Cornice's `schema` kwarg when present. |
 | **pcm_request** | A dict passed to Cornice decorators mapping locations (`"body"`, `"querystring"`) to Marshmallow schema classes. Provides more explicit schema location info than the `schema` kwarg + validator inference pattern. |
 | **pcm_responses** | A dict passed to Cornice decorators mapping HTTP status codes (e.g., `200`, `400`) to Marshmallow schema classes. Enables per-status-code response typing. The first 2xx schema becomes the endpoint's primary `response_schema`. |
+| **Schema renaming** | The generator renames schemas whose names lack a role suffix (e.g., `ChargeSchema`) based on the endpoint path + usage role. `ChargeSchema` on `POST /api/v1/charges` becomes `ChargesRequestSchema`. Schemas that already have role suffixes (`RequestSchema`, `ResponseSchema`, `QuerySchema`, `BodySchema`, `PathSchema`, `ErrorSchema`) are left unchanged. |
+| **Role suffix** | A schema name suffix that communicates how the schema is used: `RequestSchema` (body), `ResponseSchema` (response), `QuerySchema` (querystring), `BodySchema` (body in composite), `PathSchema` (path params), `ErrorSchema` (error responses). |
+| **Versioned output** | When endpoints have API version prefixes (`/api/v1/...`), the generator creates per-version subdirectories (`v1/`, `v2/`). Each version has its own `client.py` and `schemas.py`. A root client aggregates versions as properties (`client.v1.list_charges()`). |
+| **Version sub-client** | A per-version client class (e.g., `V1Client`) that receives a shared `requests.Session` from the root client. Contains only the endpoints belonging to that API version. |
 
 ## Mental Models
 
@@ -43,6 +47,10 @@ Each layer is independent and testable:
 ### Method naming as path interpretation
 
 URL paths encode intent: `/charges` is a collection, `/charges/{id}` is a detail, and `/charges/{id}/cancel` is an action. The naming module interprets this structure to produce natural Python method names without requiring explicit annotations in the source app.
+
+### Schema naming as role communication
+
+Server-side schemas are named by domain concept (`ChargeSchema`). The generated client renames them by usage role (`ChargesRequestSchema`), because the client consumer cares about *what they send* vs *what they receive*, not the server's internal model names.
 
 ## Invariants
 
