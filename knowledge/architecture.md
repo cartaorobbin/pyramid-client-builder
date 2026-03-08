@@ -23,11 +23,14 @@ A thin adapter over `pyramid-introspector` that converts its route/view hierarch
 
 Turns a `ClientSpec` into Python source files.
 
-- **`naming.py`** — Naming conventions for class, package, method, and attribute names. Uses **NLTK WordNet** to detect verbs at the end of paths so `/charges/{id}/cancel` becomes `cancel_charge` rather than `create_charge_cancel`.
-- **`core.py`** — `ClientGenerator` annotates endpoints with method names, renders Jinja2 templates, and writes the output package.
+- **`naming.py`** — Naming conventions for class, package, method, schema, and attribute names. Uses **NLTK WordNet** to detect verbs at the end of paths so `/charges/{id}/cancel` becomes `cancel_charge` rather than `create_charge_cancel`. Also provides `to_schema_name()` for role-based schema renaming, `needs_schema_rename()` for detecting generic schema names, and `extract_version()` for detecting API version prefixes in paths.
+- **`core.py`** — `ClientGenerator` groups endpoints by API version, renames schemas by role, annotates endpoints with method names, renders Jinja2 templates, and writes the output package. When versioned endpoints are detected, generates per-version subdirectories; otherwise falls back to a flat layout.
 - **`templates/`** — Jinja2 templates:
-  - `schemas.py.j2` — Generated Marshmallow schema classes (only rendered when schemas exist).
-  - `client.py.j2` — The HTTP client class with one method per endpoint. Uses `schema.dump()` for request serialization and `schema.load()` for response deserialization when schemas are available.
+  - `schemas.py.j2` — Generated Marshmallow schema classes (only rendered when schemas exist). Reused for both flat and per-version schemas.
+  - `client.py.j2` — The HTTP client class for flat (non-versioned) output.
+  - `root_client.py.j2` — Root client for versioned output. Aggregates version sub-clients as properties and hosts non-versioned endpoint methods.
+  - `version_client.py.j2` — Per-version sub-client. Takes a shared `requests.Session` from the root client.
+  - `version___init__.py.j2` — Per-version package init.
   - `ext.py.j2` — Pyramid `includeme` that registers the client on the request.
   - `__init__.py.j2` — Package init with imports.
 
@@ -54,8 +57,14 @@ INI file
       └── _collect_schemas() → unique schemas
   → ClientSpec (endpoints + deduplicated schemas)
   → ClientGenerator
+      ├── _group_by_version() → splits endpoints into versioned/unversioned
+      ├── _rename_schemas() → renames generic schema names by role + path
       ├── _annotate_endpoints() → assigns Python method names (with verb detection)
-      └── _render_template() × 4 → writes schemas.py, client.py, ext.py, __init__.py
+      └── Versioned path:
+      │     ├── per version: v{n}/schemas.py, v{n}/client.py, v{n}/__init__.py
+      │     └── root: client.py (version properties), __init__.py, ext.py
+      └── Flat path (no versions):
+            └── schemas.py, client.py, __init__.py, ext.py
   → Output package on disk
 ```
 

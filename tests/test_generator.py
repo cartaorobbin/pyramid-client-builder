@@ -1,10 +1,9 @@
 """Tests for pyramid_client_builder.generator."""
 
 import ast
-import importlib.util
 
 import pytest
-from pyramid_introspector import ParameterInfo
+from pyramid_introspector import ParameterInfo, SchemaFieldInfo, SchemaInfo
 
 from pyramid_client_builder.generator.core import ClientGenerator
 from pyramid_client_builder.introspection.core import PyramidIntrospector
@@ -56,10 +55,35 @@ def simple_spec():
 
 
 @pytest.fixture()
+def flat_spec():
+    """A ClientSpec with NO versioned paths — triggers flat output."""
+    return ClientSpec(
+        name="myapp",
+        endpoints=[
+            EndpointInfo(name="home", path="/", method="GET", description="Home"),
+            EndpointInfo(
+                name="items",
+                path="/items",
+                method="POST",
+                description="Create",
+                parameters=[
+                    ParameterInfo(name="name", location="body", type_hint="str"),
+                ],
+            ),
+        ],
+    )
+
+
+@pytest.fixture()
 def example_spec(example_registry):
     """ClientSpec built from the real example app."""
     introspector = PyramidIntrospector(example_registry)
     return introspector.build_client_spec("example")
+
+
+# ======================================================================
+# Simple spec (has versioned /api/v1/ endpoints → versioned output)
+# ======================================================================
 
 
 class TestClientGeneratorWithSimpleSpec:
@@ -77,44 +101,45 @@ class TestClientGeneratorWithSimpleSpec:
         assert (package_dir / "client.py").exists()
         assert (package_dir / "ext.py").exists()
 
+    def test_generates_v1_directory(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        assert (package_dir / "v1").is_dir()
+        assert (package_dir / "v1" / "__init__.py").exists()
+        assert (package_dir / "v1" / "client.py").exists()
+
     def test_no_schemas_file_without_schemas(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec)
         package_dir = gen.generate(tmp_path)
         assert not (package_dir / "schemas.py").exists()
+        assert not (package_dir / "v1" / "schemas.py").exists()
 
-    def test_generated_client_is_valid_python(self, simple_spec, tmp_path):
+    def test_generated_files_are_valid_python(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec)
         package_dir = gen.generate(tmp_path)
-        for py_file in package_dir.glob("*.py"):
+        for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
 
-    def test_client_class_is_importable(self, simple_spec, tmp_path):
+    def test_root_client_has_version_property(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec)
         package_dir = gen.generate(tmp_path)
-        spec = importlib.util.spec_from_file_location(
-            "testapp_client.client",
-            package_dir / "client.py",
-        )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        assert hasattr(module, "TestappClient")
+        client_source = (package_dir / "client.py").read_text()
+        assert "self.v1 = V1Client(" in client_source
 
-    def test_generated_methods_exist(self, simple_spec, tmp_path):
+    def test_root_client_has_unversioned_methods(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec)
         package_dir = gen.generate(tmp_path)
-        spec = importlib.util.spec_from_file_location(
-            "testapp_client.client",
-            package_dir / "client.py",
-        )
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        client_cls = module.TestappClient
-        method_names = [m for m in dir(client_cls) if not m.startswith("_")]
-        assert "get_home" in method_names
-        assert "list_items" in method_names
-        assert "create_item" in method_names
-        assert "get_item" in method_names
+        client_source = (package_dir / "client.py").read_text()
+        assert "def get_home(self):" in client_source
+
+    def test_v1_client_has_versioned_methods(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "def list_items(" in v1_source
+        assert "def create_item(" in v1_source
+        assert "def get_item(" in v1_source
 
     def test_class_name_and_package_name(self, simple_spec):
         gen = ClientGenerator(simple_spec)
@@ -123,32 +148,78 @@ class TestClientGeneratorWithSimpleSpec:
         assert gen.request_attr == "testapp_client"
 
 
+# ======================================================================
+# Flat spec (no versioned paths → flat output, backward compatible)
+# ======================================================================
+
+
+class TestClientGeneratorWithFlatSpec:
+
+    def test_flat_output_has_no_version_dirs(self, flat_spec, tmp_path):
+        gen = ClientGenerator(flat_spec)
+        package_dir = gen.generate(tmp_path)
+        assert not (package_dir / "v1").exists()
+
+    def test_flat_output_methods_on_root_client(self, flat_spec, tmp_path):
+        gen = ClientGenerator(flat_spec)
+        package_dir = gen.generate(tmp_path)
+        client_source = (package_dir / "client.py").read_text()
+        assert "def get_home(self):" in client_source
+        assert "def create_items(" in client_source
+
+    def test_flat_output_is_valid_python(self, flat_spec, tmp_path):
+        gen = ClientGenerator(flat_spec)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.glob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Example app (real Pyramid + Cornice → versioned output)
+# ======================================================================
+
+
 class TestClientGeneratorWithExampleApp:
 
     def test_generates_from_real_app(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
         assert (package_dir / "client.py").exists()
+        assert (package_dir / "v1" / "client.py").exists()
 
     def test_all_generated_files_are_valid_python(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        for py_file in package_dir.glob("*.py"):
+        for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
 
-    def test_verb_naming_in_generated_client(self, example_spec, tmp_path):
+    def test_verb_naming_in_v1_client(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "def cancel_charge(" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "def cancel_charge(" in v1_source
 
     def test_list_naming_for_collections(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "def list_charges(" in client_source
-        assert "def list_invoices(" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "def list_charges(" in v1_source
+        assert "def list_invoices(" in v1_source
+
+    def test_root_has_unversioned_endpoints(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        root_source = (package_dir / "client.py").read_text()
+        assert "def get_home(self):" in root_source
+        assert "def get_health(self):" in root_source
+
+    def test_root_has_v1_property(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        root_source = (package_dir / "client.py").read_text()
+        assert "self.v1 = V1Client(" in root_source
 
     def test_ext_contains_includeme(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
@@ -163,88 +234,91 @@ class TestClientGeneratorWithExampleApp:
         init_source = (package_dir / "__init__.py").read_text()
         assert "ExampleClient" in init_source
 
-    def test_generates_schemas_file(self, example_spec, tmp_path):
+    def test_init_exports_v1_module(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        assert (package_dir / "schemas.py").exists()
+        init_source = (package_dir / "__init__.py").read_text()
+        assert '"v1"' in init_source
 
-    def test_schemas_file_is_valid_python(self, example_spec, tmp_path):
+    def test_generates_v1_schemas_file(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        source = (package_dir / "schemas.py").read_text()
+        assert (package_dir / "v1" / "schemas.py").exists()
+
+    def test_v1_schemas_file_is_valid_python(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
         ast.parse(source, filename="schemas.py")
 
-    def test_schemas_file_contains_request_schema(self, example_spec, tmp_path):
+    def test_v1_schemas_contains_request_schema(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        source = (package_dir / "schemas.py").read_text()
+        source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class ChargeRequestSchema(ma.Schema):" in source
         assert "ma.fields.Integer" in source
         assert "ma.fields.String" in source
 
-    def test_schemas_file_contains_querystring_schema(self, example_spec, tmp_path):
+    def test_v1_schemas_contains_querystring_schema(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        source = (package_dir / "schemas.py").read_text()
+        source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class ChargesQuerySchema(ma.Schema):" in source
 
-    def test_schemas_file_contains_response_schema(self, example_spec, tmp_path):
+    def test_v1_schemas_contains_response_schema(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        source = (package_dir / "schemas.py").read_text()
+        source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class ChargeResponseSchema(ma.Schema):" in source
 
-    def test_client_imports_schemas(self, example_spec, tmp_path):
+    def test_v1_client_imports_schemas(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "from example_client.schemas import" in client_source
-        assert "ChargeRequestSchema" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "from example_client.v1.schemas import" in v1_source
+        assert "ChargeRequestSchema" in v1_source
 
-    def test_client_uses_dump_for_body(self, example_spec, tmp_path):
+    def test_v1_client_uses_dump_for_body(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "ChargeRequestSchema().dump(" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "ChargeRequestSchema().dump(" in v1_source
 
-    def test_client_uses_dump_for_querystring(self, example_spec, tmp_path):
+    def test_v1_client_uses_dump_for_querystring(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "ChargesQuerySchema().dump(" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "ChargesQuerySchema().dump(" in v1_source
 
-    def test_client_uses_load_for_response(self, example_spec, tmp_path):
+    def test_v1_client_uses_load_for_response(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "ChargeResponseSchema().load(response.json())" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "ChargeResponseSchema().load(response.json())" in v1_source
 
     def test_client_falls_back_to_raw_json_without_response_schema(
         self, example_spec, tmp_path
     ):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "return response.json()" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "return response.json()" in v1_source
 
     def test_body_params_generate_json_body(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "json=body" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "json=body" in v1_source
 
-    def test_init_exports_schemas(self, example_spec, tmp_path):
+    def test_no_root_schemas_file(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        init_source = (package_dir / "__init__.py").read_text()
-        assert "schemas" in init_source
+        assert not (package_dir / "schemas.py").exists()
 
-    def test_composite_schema_generates_inner_schemas(
-        self, example_spec, tmp_path
-    ):
+    def test_composite_schema_generates_inner_schemas(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        source = (package_dir / "schemas.py").read_text()
+        source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class RefundBodySchema(ma.Schema):" in source
         assert "class RefundQuerySchema(ma.Schema):" in source
         assert "RefundRequestSchema" not in source
@@ -254,8 +328,8 @@ class TestClientGeneratorWithExampleApp:
     ):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        for line in client_source.splitlines():
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        for line in v1_source.splitlines():
             if "def refund_charge(" in line:
                 assert "amount: int" in line
                 assert "reason: str" in line
@@ -271,18 +345,18 @@ class TestClientGeneratorWithExampleApp:
     ):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "RefundBodySchema().dump(" in client_source
-        assert "RefundQuerySchema().dump(" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "RefundBodySchema().dump(" in v1_source
+        assert "RefundQuerySchema().dump(" in v1_source
 
 
 class TestPycornmarshGeneration:
     """Verify pycornmarsh-style endpoints generate correct client code."""
 
-    def test_pcm_schemas_in_schemas_file(self, example_spec, tmp_path):
+    def test_pcm_schemas_in_v1_schemas_file(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        source = (package_dir / "schemas.py").read_text()
+        source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class SimulateBodySchema(ma.Schema):" in source
         assert "class SimulateQuerySchema(ma.Schema):" in source
         assert "class SimulateResponseSchema(ma.Schema):" in source
@@ -290,26 +364,26 @@ class TestPycornmarshGeneration:
     def test_pcm_client_uses_body_schema_dump(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "SimulateBodySchema().dump(" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "SimulateBodySchema().dump(" in v1_source
 
     def test_pcm_client_uses_querystring_schema_dump(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "SimulateQuerySchema().dump(" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "SimulateQuerySchema().dump(" in v1_source
 
     def test_pcm_client_uses_response_schema_load(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "SimulateResponseSchema().load(response.json())" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "SimulateResponseSchema().load(response.json())" in v1_source
 
     def test_pcm_endpoint_has_individual_params(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        for line in client_source.splitlines():
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        for line in v1_source.splitlines():
             if "def simulate_financing(" in line:
                 assert "amount: int" in line
                 assert "term_months: int" in line
@@ -317,18 +391,23 @@ class TestPycornmarshGeneration:
         else:
             raise AssertionError("simulate_financing not found")
 
-    def test_pcm_error_schema_in_schemas_file(self, example_spec, tmp_path):
+    def test_pcm_error_schema_in_v1_schemas_file(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        source = (package_dir / "schemas.py").read_text()
+        source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class RequestErrorSchema(ma.Schema):" in source
 
     def test_pcm_generated_code_is_valid_python(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        for py_file in package_dir.glob("*.py"):
+        for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Method signatures
+# ======================================================================
 
 
 class TestMethodSignatures:
@@ -337,23 +416,23 @@ class TestMethodSignatures:
     def test_body_params_are_individual_arguments(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "body: dict" not in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "body: dict" not in v1_source
 
     def test_create_charge_has_individual_params(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "def create_charge(self, amount: int" in client_source
-        assert "currency: str" in client_source
-        assert "part_id: str" in client_source
-        assert "description: str | None = None" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "def create_charge(self, amount: int" in v1_source
+        assert "currency: str" in v1_source
+        assert "part_id: str" in v1_source
+        assert "description: str | None = None" in v1_source
 
     def test_required_params_before_optional(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        for line in client_source.splitlines():
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        for line in v1_source.splitlines():
             if "def create_charge(" in line:
                 amount_pos = line.index("amount: int")
                 description_pos = line.index("description: str | None")
@@ -365,25 +444,28 @@ class TestMethodSignatures:
     def test_dump_references_individual_params(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert '"amount": amount' in client_source
-        assert '"currency": currency' in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert '"amount": amount' in v1_source
+        assert '"currency": currency' in v1_source
 
-    def test_simple_spec_body_uses_individual_params(
-        self, simple_spec, tmp_path
-    ):
+    def test_simple_spec_body_uses_individual_params(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert "body: dict" not in client_source
-        assert "def create_item(self, name: str, price: int)" in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "body: dict" not in v1_source
+        assert "def create_item(self, name: str, price: int)" in v1_source
 
     def test_simple_spec_body_built_from_params(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec)
         package_dir = gen.generate(tmp_path)
-        client_source = (package_dir / "client.py").read_text()
-        assert '"name": name' in client_source
-        assert '"price": price' in client_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert '"name": name' in v1_source
+        assert '"price": price' in v1_source
+
+
+# ======================================================================
+# Method name deduplication
+# ======================================================================
 
 
 class TestMethodNameDeduplication:
@@ -397,7 +479,218 @@ class TestMethodNameDeduplication:
             ],
         )
         gen = ClientGenerator(spec)
-        gen._annotate_endpoints()
+        gen._annotate_endpoints(spec.endpoints)
         names = [ep.method_name for ep in spec.endpoints]  # type: ignore[attr-defined]
         assert names[0] == "list_things"
         assert names[1] == "list_things_1"
+
+
+# ======================================================================
+# Schema renaming
+# ======================================================================
+
+
+class TestSchemaRenaming:
+    """Verify schemas without role suffixes get renamed from endpoint paths."""
+
+    def test_generic_schema_renamed_for_request(self, tmp_path):
+        schema = SchemaInfo(
+            name="ChargeSchema",
+            fields=[
+                SchemaFieldInfo(name="amount", field_type="Integer", required=True),
+            ],
+        )
+        spec = ClientSpec(
+            name="billing",
+            endpoints=[
+                EndpointInfo(
+                    name="charges",
+                    path="/api/v1/charges",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="amount", location="body", type_hint="int"),
+                    ],
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_schemas = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class ChargesRequestSchema(ma.Schema):" in v1_schemas
+        assert "ChargeSchema" not in v1_schemas
+
+    def test_generic_schema_renamed_for_response(self, tmp_path):
+        schema = SchemaInfo(
+            name="ChargeSchema",
+            fields=[
+                SchemaFieldInfo(name="id", field_type="String"),
+            ],
+        )
+        spec = ClientSpec(
+            name="billing",
+            endpoints=[
+                EndpointInfo(
+                    name="charges",
+                    path="/api/v1/charges",
+                    method="GET",
+                    response_schema=schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_schemas = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class ChargesResponseSchema(ma.Schema):" in v1_schemas
+
+    def test_generic_schema_renamed_for_querystring(self, tmp_path):
+        schema = SchemaInfo(
+            name="ChargesFilter",
+            fields=[
+                SchemaFieldInfo(name="status", field_type="String"),
+            ],
+        )
+        spec = ClientSpec(
+            name="billing",
+            endpoints=[
+                EndpointInfo(
+                    name="charges",
+                    path="/api/v1/charges",
+                    method="GET",
+                    querystring_schema=schema,
+                    parameters=[
+                        ParameterInfo(
+                            name="status",
+                            location="querystring",
+                            required=False,
+                            type_hint="str",
+                        ),
+                    ],
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_schemas = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class ChargesQuerySchema(ma.Schema):" in v1_schemas
+        assert "ChargesFilter" not in v1_schemas
+
+    def test_role_suffixed_schema_not_renamed(self, tmp_path):
+        schema = SchemaInfo(
+            name="ChargeRequestSchema",
+            fields=[
+                SchemaFieldInfo(name="amount", field_type="Integer", required=True),
+            ],
+        )
+        spec = ClientSpec(
+            name="billing",
+            endpoints=[
+                EndpointInfo(
+                    name="charges",
+                    path="/api/v1/charges",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="amount", location="body", type_hint="int"),
+                    ],
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_schemas = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class ChargeRequestSchema(ma.Schema):" in v1_schemas
+
+    def test_v1_client_uses_renamed_schema(self, tmp_path):
+        schema = SchemaInfo(
+            name="ChargeSchema",
+            fields=[
+                SchemaFieldInfo(name="amount", field_type="Integer", required=True),
+            ],
+        )
+        spec = ClientSpec(
+            name="billing",
+            endpoints=[
+                EndpointInfo(
+                    name="charges",
+                    path="/api/v1/charges",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="amount", location="body", type_hint="int"),
+                    ],
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_client = (package_dir / "v1" / "client.py").read_text()
+        assert "ChargesRequestSchema().dump(" in v1_client
+        assert "ChargeSchema" not in v1_client
+
+    def test_rename_conflict_keeps_original(self, tmp_path):
+        """When the same schema would get different names, keep the original."""
+        schema = SchemaInfo(
+            name="GenericSchema",
+            fields=[SchemaFieldInfo(name="data", field_type="String")],
+        )
+        spec = ClientSpec(
+            name="test",
+            endpoints=[
+                EndpointInfo(
+                    name="charges",
+                    path="/api/v1/charges",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="data", location="body", type_hint="str"),
+                    ],
+                ),
+                EndpointInfo(
+                    name="invoices",
+                    path="/api/v1/invoices",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="data", location="body", type_hint="str"),
+                    ],
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_schemas = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class GenericSchema(ma.Schema):" in v1_schemas
+
+
+# ======================================================================
+# Version directory structure
+# ======================================================================
+
+
+class TestVersionedStructure:
+
+    def test_v1_init_exports_client(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_init = (package_dir / "v1" / "__init__.py").read_text()
+        assert "V1Client" in v1_init
+
+    def test_v1_client_class_name(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "class V1Client:" in v1_source
+
+    def test_v1_client_constructor_takes_session(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "def __init__(self, base_url, session, timeout):" in v1_source
+
+    def test_root_client_creates_session(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        root_source = (package_dir / "client.py").read_text()
+        assert "self.session = requests.Session()" in root_source
+        assert "auth_token" in root_source

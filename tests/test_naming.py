@@ -3,10 +3,13 @@
 import pytest
 
 from pyramid_client_builder.generator.naming import (
+    extract_version,
+    needs_schema_rename,
     to_class_name,
     to_method_name,
     to_package_name,
     to_request_attr,
+    to_schema_name,
 )
 
 
@@ -49,6 +52,99 @@ class TestToRequestAttr:
     )
     def test_conversions(self, name, expected):
         assert to_request_attr(name) == expected
+
+
+class TestToSchemaName:
+    """Derive schema names from endpoint paths + role."""
+
+    @pytest.mark.parametrize(
+        "path, role, expected",
+        [
+            ("/api/v1/charges", "request", "ChargesRequestSchema"),
+            ("/api/v1/charges", "response", "ChargesResponseSchema"),
+            ("/api/v1/charges", "querystring", "ChargesQuerySchema"),
+            ("/api/v1/charges/{charge_id}", "response", "ChargesResponseSchema"),
+            (
+                "/api/v1/charges/{charge_id}/refund",
+                "request",
+                "ChargesRefundRequestSchema",
+            ),
+            (
+                "/api/v1/financing/simulate",
+                "response",
+                "FinancingSimulateResponseSchema",
+            ),
+            (
+                "/api/v1/split_accounts",
+                "querystring",
+                "SplitAccountsQuerySchema",
+            ),
+        ],
+    )
+    def test_schema_name_from_path(self, path, role, expected):
+        assert to_schema_name(path, role) == expected
+
+    def test_returns_none_for_root_path(self):
+        assert to_schema_name("/", "request") is None
+
+    def test_returns_none_for_unknown_role(self):
+        assert to_schema_name("/api/v1/charges", "unknown") is None
+
+
+class TestNeedsSchemaRename:
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "ChargeSchema",
+            "Charge",
+            "ChargeModel",
+            "ChargeData",
+        ],
+    )
+    def test_needs_rename(self, name):
+        assert needs_schema_rename(name) is True
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "ChargeRequestSchema",
+            "ChargesResponseSchema",
+            "ChargesQuerySchema",
+            "RefundBodySchema",
+            "ChargePathSchema",
+            "RequestErrorSchema",
+        ],
+    )
+    def test_already_has_role_suffix(self, name):
+        assert needs_schema_rename(name) is False
+
+
+class TestExtractVersion:
+
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            ("/api/v1/charges", "v1"),
+            ("/api/v2/invoices/{id}", "v2"),
+            ("/v3/items", "v3"),
+            ("/api/v10/resources", "v10"),
+        ],
+    )
+    def test_extracts_version(self, path, expected):
+        assert extract_version(path) == expected
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/health",
+            "/",
+            "/items",
+            "/api/charges",
+        ],
+    )
+    def test_returns_none_without_version(self, path):
+        assert extract_version(path) is None
 
 
 class TestToMethodNameVerbDetection:
@@ -124,7 +220,9 @@ class TestToMethodNameCreate:
         assert to_method_name("charges", "POST", "/api/v1/charges") == "create_charge"
 
     def test_create_invoice(self):
-        assert to_method_name("invoices", "POST", "/api/v1/invoices") == "create_invoice"
+        assert (
+            to_method_name("invoices", "POST", "/api/v1/invoices") == "create_invoice"
+        )
 
 
 class TestToMethodNameRouteNameFallback:

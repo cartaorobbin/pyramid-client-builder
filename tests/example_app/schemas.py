@@ -4,10 +4,16 @@ import marshmallow as ma
 
 
 class ChargeRequestSchema(ma.Schema):
-    amount = ma.fields.Integer(required=True, metadata={"description": "Amount in cents"})
-    currency = ma.fields.String(required=True, metadata={"description": "ISO currency code"})
+    amount = ma.fields.Integer(
+        required=True, metadata={"description": "Amount in cents"}
+    )
+    currency = ma.fields.String(
+        required=True, metadata={"description": "ISO currency code"}
+    )
     description = ma.fields.String(metadata={"description": "Charge description"})
-    part_id = ma.fields.String(required=True, metadata={"description": "Part identifier"})
+    part_id = ma.fields.String(
+        required=True, metadata={"description": "Part identifier"}
+    )
 
 
 class ChargeResponseSchema(ma.Schema):
@@ -29,7 +35,9 @@ class ChargePathSchema(ma.Schema):
 
 
 class InvoiceQuerySchema(ma.Schema):
-    part_id = ma.fields.String(required=True, metadata={"description": "Part identifier"})
+    part_id = ma.fields.String(
+        required=True, metadata={"description": "Part identifier"}
+    )
     status = ma.fields.String(metadata={"description": "Filter by status"})
 
 

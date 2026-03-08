@@ -77,9 +77,7 @@ def pclient_build(ini_file, name, output, include, exclude, debug):
             exclude_patterns=list(exclude) if exclude else None,
         )
 
-        click.echo(
-            f"Discovered {len(spec.endpoints)} endpoints", err=True
-        )
+        click.echo(f"Discovered {len(spec.endpoints)} endpoints", err=True)
 
         if not spec.endpoints:
             click.echo(

@@ -22,9 +22,26 @@ def _ensure_wordnet():
         nltk.download("wordnet", quiet=True)
     _wordnet_ready = True
 
+
 _ROUTE_NAME_SEPS = re.compile(r"[-_]+")
 _DUPLICATE_UNDERSCORES = re.compile(r"_+")
 _PATH_PARAM = re.compile(r"\{[^}]+\}")
+_VERSION_RE = re.compile(r"v(\d+)")
+
+_ROLE_SUFFIXES = (
+    "RequestSchema",
+    "ResponseSchema",
+    "QuerySchema",
+    "BodySchema",
+    "PathSchema",
+    "ErrorSchema",
+)
+
+_SCHEMA_ROLE_MAP = {
+    "request": "RequestSchema",
+    "querystring": "QuerySchema",
+    "response": "ResponseSchema",
+}
 
 
 def to_class_name(name: str) -> str:
@@ -58,6 +75,63 @@ def to_request_attr(name: str) -> str:
         "legal-entity" -> "legal_entity_client"
     """
     return f"{name.replace('-', '_')}_client"
+
+
+def to_schema_name(path: str, role: str) -> str | None:
+    """Derive a schema name from an endpoint path and its usage role.
+
+    Uses path segments (stripping API prefixes and path params) joined in
+    PascalCase, plus a role suffix.
+
+    Returns None if the path has no meaningful segments.
+
+    Examples:
+        ("/api/v1/charges", "request")          -> "ChargesRequestSchema"
+        ("/api/v1/charges/{id}", "response")     -> "ChargesResponseSchema"
+        ("/api/v1/charges/{id}/refund", "request")
+            -> "ChargesRefundRequestSchema"
+        ("/api/v1/split_accounts", "querystring")
+            -> "SplitAccountsQuerySchema"
+    """
+    segments = _path_segments(path)
+    if not segments:
+        return None
+    pascal = "".join(_to_pascal(seg) for seg in segments)
+    suffix = _SCHEMA_ROLE_MAP.get(role)
+    if suffix is None:
+        return None
+    return f"{pascal}{suffix}"
+
+
+def needs_schema_rename(name: str) -> bool:
+    """Check whether a schema name needs role-based renaming.
+
+    Returns True if the name does NOT already end with a recognized role
+    suffix like ``RequestSchema``, ``ResponseSchema``, etc.
+    """
+    return not any(name.endswith(suffix) for suffix in _ROLE_SUFFIXES)
+
+
+def extract_version(path: str) -> str | None:
+    """Extract an API version string from a URL path.
+
+    Looks for segments matching ``v<digits>`` (e.g. ``v1``, ``v2``).
+
+    Examples:
+        "/api/v1/charges"       -> "v1"
+        "/api/v2/invoices/{id}" -> "v2"
+        "/health"               -> None
+        "/"                     -> None
+    """
+    for seg in path.strip("/").split("/"):
+        if _VERSION_RE.fullmatch(seg):
+            return seg
+    return None
+
+
+def _to_pascal(segment: str) -> str:
+    """Convert a snake_case or plain segment to PascalCase."""
+    return "".join(word.capitalize() for word in segment.split("_"))
 
 
 def to_method_name(route_name: str, method: str, path: str = "") -> str:
@@ -158,9 +232,7 @@ def _is_verb(word: str) -> bool:
     return len(synsets) > 0
 
 
-def _method_prefix_name_from_path(
-    segments: list[str], method: str, path: str
-) -> str:
+def _method_prefix_name_from_path(segments: list[str], method: str, path: str) -> str:
     """Generate a method name from path segments + HTTP method.
 
     GET /charges              -> list_charges
