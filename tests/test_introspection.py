@@ -2,7 +2,7 @@
 
 from pyramid_introspector import ParameterInfo, RouteInfo, SchemaInfo, ViewInfo
 
-from pyramid_client_builder.introspection.core import (
+from pyramid_client_builder.introspection import (
     PyramidIntrospector,
     _routes_to_endpoints,
 )

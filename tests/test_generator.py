@@ -6,7 +6,7 @@ import pytest
 from pyramid_introspector import ParameterInfo, SchemaFieldInfo, SchemaInfo
 
 from pyramid_client_builder.generator.core import ClientGenerator
-from pyramid_client_builder.introspection.core import PyramidIntrospector
+from pyramid_client_builder.introspection import PyramidIntrospector
 from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
 

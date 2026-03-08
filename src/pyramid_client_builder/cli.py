@@ -11,7 +11,7 @@ import click
 from pyramid.paster import bootstrap, setup_logging
 
 from pyramid_client_builder.generator.core import ClientGenerator
-from pyramid_client_builder.introspection.core import PyramidIntrospector
+from pyramid_client_builder.introspection import PyramidIntrospector
 
 logger = logging.getLogger(__name__)
 
