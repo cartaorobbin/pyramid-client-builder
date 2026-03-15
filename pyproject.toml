@@ -61,4 +61,5 @@ dev = [
     "marshmallow",
     "tox",
     "tox-uv>=1.25",
+    "pre-commit",
 ]
