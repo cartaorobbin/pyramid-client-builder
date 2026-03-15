@@ -1,0 +1,113 @@
+// Package {{ version }} provides the {{ version }} sub-client for {{ spec.name }}.
+package {{ version }}
+
+import (
+{% for imp in go_std_imports %}
+	"{{ imp }}"
+{% endfor %}
+)
+
+// Client is the {{ version }} HTTP sub-client for {{ spec.name }}.
+type Client struct {
+	baseURL    string
+	httpClient *http.Client
+	authToken  string
+}
+
+// NewClient creates a new {{ version }} Client.
+func NewClient(baseURL string, httpClient *http.Client, authToken string) *Client {
+	return &Client{
+		baseURL:    baseURL,
+		httpClient: httpClient,
+		authToken:  authToken,
+	}
+}
+
+func (c *Client) do(req *http.Request) (*http.Response, error) {
+	if c.authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+c.authToken)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return c.httpClient.Do(req)
+}
+{% for endpoint in endpoints %}
+
+// {{ endpoint.method_name }} performs {{ endpoint.method }} {{ endpoint | go_doc_path }}.
+{% if endpoint.description %}
+// {{ endpoint.description }}
+{% endif %}
+func (c *Client) {{ endpoint.method_name }}({{ endpoint | go_method_params }}) ({{ endpoint | go_return_type }}, error) {
+{% if endpoint.path_parameters %}
+	reqURL := fmt.Sprintf("%s{{ endpoint | go_format_url }}", c.baseURL{{ endpoint | go_url_args }})
+{% else %}
+	reqURL := c.baseURL + "{{ endpoint | go_doc_path }}"
+{% endif %}
+{% if endpoint.request_schema %}
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return {{ endpoint | go_zero_return }}, fmt.Errorf("marshal request: %w", err)
+	}
+	httpReq, err := http.NewRequest("{{ endpoint.method }}", reqURL, bytes.NewReader(bodyBytes))
+{% elif endpoint.has_body %}
+	bodyBytes, err := json.Marshal(map[string]interface{}{
+{% for p in endpoint.body_parameters %}
+		"{{ p.name }}": {{ p.name | go_param_name }},
+{% endfor %}
+	})
+	if err != nil {
+		return {{ endpoint | go_zero_return }}, fmt.Errorf("marshal request: %w", err)
+	}
+	httpReq, err := http.NewRequest("{{ endpoint.method }}", reqURL, bytes.NewReader(bodyBytes))
+{% else %}
+	httpReq, err := http.NewRequest("{{ endpoint.method }}", reqURL, nil)
+{% endif %}
+	if err != nil {
+		return {{ endpoint | go_zero_return }}, fmt.Errorf("create request: %w", err)
+	}
+{% if endpoint.querystring_schema %}
+	if query != nil {
+		q := httpReq.URL.Query()
+{% for field in endpoint.querystring_schema.fields %}
+{% if not field.required %}
+		if query.{{ field.name | go_field_name }} != nil {
+			q.Set("{{ field.name }}", fmt.Sprintf("%v", *query.{{ field.name | go_field_name }}))
+		}
+{% else %}
+		q.Set("{{ field.name }}", fmt.Sprintf("%v", query.{{ field.name | go_field_name }}))
+{% endif %}
+{% endfor %}
+		httpReq.URL.RawQuery = q.Encode()
+	}
+{% elif endpoint.querystring_parameters %}
+	q := httpReq.URL.Query()
+{% for p in endpoint.querystring_parameters %}
+	if {{ p.name | go_param_name }} != nil {
+		q.Set("{{ p.name }}", fmt.Sprintf("%v", *{{ p.name | go_param_name }}))
+	}
+{% endfor %}
+	httpReq.URL.RawQuery = q.Encode()
+{% endif %}
+	resp, err := c.do(httpReq)
+	if err != nil {
+		return {{ endpoint | go_zero_return }}, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		errBody, _ := io.ReadAll(resp.Body)
+		return {{ endpoint | go_zero_return }}, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(errBody))
+	}
+{% if endpoint.response_schema %}
+	var result {{ endpoint.response_schema.name }}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return &result, nil
+{% else %}
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return result, nil
+{% endif %}
+}
+{% endfor %}

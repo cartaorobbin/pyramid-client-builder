@@ -11,17 +11,19 @@ from importlib.resources import files as package_files
 from pathlib import Path
 
 from jinja2 import Environment
-from pyramid_introspector import SchemaFieldInfo, SchemaInfo
+from pyramid_introspector import SchemaFieldInfo
 
+from pyramid_client_builder.generator.common import (
+    collect_schemas,
+    group_by_version,
+    rename_schemas,
+)
 from pyramid_client_builder.generator.naming import (
-    extract_version,
-    needs_schema_rename,
     to_class_name,
     to_method_name,
     to_package_name,
     to_project_name,
     to_request_attr,
-    to_schema_name,
 )
 from pyramid_client_builder.generator.renderer import render_tree
 from pyramid_client_builder.models import ClientSpec, EndpointInfo
@@ -62,14 +64,14 @@ class ClientGenerator:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        versioned, unversioned = _group_by_version(self.spec.endpoints)
+        versioned, unversioned = group_by_version(self.spec.endpoints)
 
         versions_ctx: dict[str, dict] = {}
         for version in sorted(versioned.keys()):
             endpoints = versioned[version]
-            _rename_schemas(endpoints)
+            rename_schemas(endpoints)
             self._annotate_endpoints(endpoints)
-            schemas = _collect_schemas(endpoints)
+            schemas = collect_schemas(endpoints)
             versions_ctx[version] = {
                 "version": version,
                 "version_class_name": _version_class_name(version),
@@ -77,9 +79,9 @@ class ClientGenerator:
                 "schemas": schemas,
             }
 
-        _rename_schemas(unversioned)
+        rename_schemas(unversioned)
         self._annotate_endpoints(unversioned)
-        unversioned_schemas = _collect_schemas(unversioned)
+        unversioned_schemas = collect_schemas(unversioned)
 
         has_schemas = bool(unversioned_schemas) or any(
             v["schemas"] for v in versions_ctx.values()
@@ -142,102 +144,6 @@ class ClientGenerator:
         env.filters["qs_dict_literal"] = _qs_dict_literal_filter
         env.filters["version_class_name"] = _version_class_name
         return env
-
-
-# ======================================================================
-# Module-level helpers
-# ======================================================================
-
-
-def _group_by_version(
-    endpoints: list[EndpointInfo],
-) -> tuple[dict[str, list[EndpointInfo]], list[EndpointInfo]]:
-    """Split endpoints into versioned groups and an unversioned remainder."""
-    versioned: dict[str, list[EndpointInfo]] = {}
-    unversioned: list[EndpointInfo] = []
-
-    for ep in endpoints:
-        version = extract_version(ep.path)
-        if version:
-            versioned.setdefault(version, []).append(ep)
-        else:
-            unversioned.append(ep)
-
-    return versioned, unversioned
-
-
-def _rename_schemas(endpoints: list[EndpointInfo]) -> None:
-    """Rename schemas that lack a role suffix based on endpoint path + role.
-
-    Mutates ``SchemaInfo.name`` in place.  Skips schemas whose name
-    already ends with a recognized role suffix (e.g. ``RequestSchema``).
-    Skips schemas where the generated name conflicts with another schema's
-    original name or where the same schema would get different names from
-    different endpoints.
-    """
-    rename_map: dict[str, str] = {}
-    conflicts: set[str] = set()
-    all_original_names: set[str] = set()
-
-    for ep in endpoints:
-        for schema in _iter_schemas(ep):
-            all_original_names.add(schema.name)
-
-    role_attrs = [
-        ("request_schema", "request"),
-        ("querystring_schema", "querystring"),
-        ("response_schema", "response"),
-    ]
-    for ep in endpoints:
-        for attr, role in role_attrs:
-            schema = getattr(ep, attr)
-            if schema is None or not needs_schema_rename(schema.name):
-                continue
-            new_name = to_schema_name(ep.path, role)
-            if new_name is None or new_name in all_original_names:
-                continue
-            original = schema.name
-            if original in conflicts:
-                continue
-            if original in rename_map:
-                if rename_map[original] != new_name:
-                    conflicts.add(original)
-                continue
-            rename_map[original] = new_name
-
-    for name in conflicts:
-        rename_map.pop(name, None)
-
-    if not rename_map:
-        return
-
-    for ep in endpoints:
-        for schema in _iter_schemas(ep):
-            if schema.name in rename_map:
-                schema.name = rename_map[schema.name]
-
-
-def _iter_schemas(endpoint: EndpointInfo):
-    """Yield all non-None SchemaInfo objects from an endpoint."""
-    for attr in ("request_schema", "querystring_schema", "response_schema"):
-        schema = getattr(endpoint, attr)
-        if schema is not None:
-            yield schema
-    yield from endpoint.response_schemas.values()
-
-
-def _collect_schemas(endpoints: list[EndpointInfo]) -> list[SchemaInfo]:
-    """Gather unique schemas referenced by endpoints (by name)."""
-    seen: set[str] = set()
-    schemas: list[SchemaInfo] = []
-
-    for ep in endpoints:
-        for schema in _iter_schemas(ep):
-            if schema.name not in seen:
-                seen.add(schema.name)
-                schemas.append(schema)
-
-    return schemas
 
 
 def _version_class_name(version: str) -> str:

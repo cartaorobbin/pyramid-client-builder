@@ -1,0 +1,20 @@
+{% if schemas %}
+package {{ version }}
+{% if type_imports %}
+
+import (
+{% for imp in type_imports %}
+	"{{ imp }}"
+{% endfor %}
+)
+{% endif %}
+{% for schema in schemas %}
+
+// {{ schema.name }} represents the {{ schema.name }} data structure.
+type {{ schema.name }} struct {
+{% for field in schema.fields %}
+	{{ field.name | go_field_name }} {{ field | go_field_type }} `json:"{{ field.name }}{{ field | go_json_omitempty }}"`
+{% endfor %}
+}
+{% endfor %}
+{% endif %}

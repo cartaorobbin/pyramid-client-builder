@@ -6,11 +6,13 @@ Usage:
 
 import logging
 import sys
+from pathlib import Path
 
 import click
 from pyramid.paster import bootstrap, setup_logging
 
 from pyramid_client_builder.generator.core import ClientGenerator
+from pyramid_client_builder.generator.go_core import GoClientGenerator
 from pyramid_client_builder.introspection import PyramidIntrospector
 
 logger = logging.getLogger(__name__)
@@ -29,7 +31,7 @@ logger = logging.getLogger(__name__)
     "--output",
     required=True,
     type=click.Path(),
-    help="Output directory for the generated client package.",
+    help="Output directory for the generated client variants.",
 )
 @click.option(
     "--include",
@@ -45,23 +47,23 @@ logger = logging.getLogger(__name__)
     "--client-version",
     default="0.1.0",
     show_default=True,
-    help="Version for the generated client package.",
+    help="Version for the generated client packages.",
 )
 @click.option(
-    "--http-client",
-    type=click.Choice(["requests", "httpx"]),
-    default="requests",
-    show_default=True,
-    help="HTTP library for the generated client.",
+    "--go-module",
+    default="",
+    help="Go module path (e.g. 'github.com/org/payments-client'). "
+    "Defaults to '<name>-client'.",
 )
 @click.option("--debug", is_flag=True, help="Enable debug logging.")
 def pclient_build(
-    ini_file, name, output, include, exclude, client_version, http_client, debug
+    ini_file, name, output, include, exclude, client_version, go_module, debug
 ):
-    """Generate an HTTP client from a Pyramid application's routes.
+    """Generate HTTP clients from a Pyramid application's routes.
 
     Boots the Pyramid app from INI_FILE, introspects its routes and Cornice
-    services, and writes a Python client package to --output.
+    services, and writes client packages for all supported variants
+    (python_requests, python_httpx, go) into subdirectories of --output.
 
     Examples:
 
@@ -101,17 +103,34 @@ def pclient_build(
             )
             raise SystemExit(1)
 
-        generator = ClientGenerator(
-            spec, version=client_version, http_client=http_client
-        )
-        package_dir = generator.generate(output)
+        output_path = Path(output)
 
-        click.echo(f"Generated {generator.class_name} at {package_dir}", err=True)
-        click.echo(f"  Class:     {generator.class_name}", err=True)
-        click.echo(f"  Package:   {generator.package_name}", err=True)
-        click.echo(f"  Request:   request.{generator.request_attr}", err=True)
-        click.echo(f"  Settings:  {spec.settings_prefix}.base_url", err=True)
+        variants = [
+            (
+                "python_requests",
+                ClientGenerator(spec, version=client_version, http_client="requests"),
+            ),
+            (
+                "python_httpx",
+                ClientGenerator(spec, version=client_version, http_client="httpx"),
+            ),
+            (
+                "go",
+                GoClientGenerator(spec, version=client_version, go_module=go_module),
+            ),
+        ]
+
+        for variant_name, generator in variants:
+            variant_dir = output_path / variant_name
+            generator.generate(variant_dir)
+            click.echo(f"  Generated {variant_name}/ ", err=True)
+
+        click.echo("", err=True)
+        click.echo(f"Generated clients at {output_path}", err=True)
+        click.echo(f"  Name:      {name}", err=True)
+        click.echo("  Variants:  python_requests, python_httpx, go", err=True)
         click.echo(f"  Endpoints: {len(spec.endpoints)}", err=True)
+        click.echo(f"  Settings:  {spec.settings_prefix}.base_url", err=True)
 
         if debug:
             for ep in spec.endpoints:

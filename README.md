@@ -4,28 +4,30 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/pyramid-client-builder.svg)](https://pypi.org/project/pyramid-client-builder/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 
-Introspect a [Pyramid](https://trypyramid.com/) application and generate a typed HTTP client package — like [protoc](https://grpc.io/docs/protoc-installation/) for gRPC, but for your Pyramid REST API.
+Introspect a [Pyramid](https://trypyramid.com/) application and generate typed HTTP clients — like [protoc](https://grpc.io/docs/protoc-installation/) for gRPC, but for your Pyramid REST API. Generates Python and Go clients in a single invocation.
 
 ## What it does
 
-`pclient-build` boots your Pyramid app from its INI file, discovers routes and [Cornice](https://cornice.readthedocs.io/) services, and writes a Python client package to disk. The generated client has one method per endpoint with natural names, Marshmallow schema serialization, and a Pyramid `includeme` for easy integration.
+`pclient-build` boots your Pyramid app from its INI file, discovers routes and [Cornice](https://cornice.readthedocs.io/) services, and generates client packages for multiple languages and HTTP transports. Each variant is written to its own subdirectory.
 
 ```
 Pyramid app (INI file)
   → introspect routes, views, schemas
-  → generate Python package
-  → client.py, schemas.py, ext.py
+  → generate all client variants:
+      python_requests/   (Python + requests)
+      python_httpx/      (Python + httpx)
+      go/                (Go + net/http)
 ```
 
 ## Quick example
 
-Generate a client from your payments service:
+Generate clients from your payments service:
 
 ```bash
 pclient-build development.ini --name payments --output ./generated/
 ```
 
-Use the generated client:
+Use the Python client:
 
 ```python
 from payments_client.client import PaymentsClient
@@ -40,6 +42,24 @@ client.cancel_charge(id=42)
 
 # Versioned APIs get sub-clients
 items = client.v1.list_items()
+```
+
+Use the Go client:
+
+```go
+import "payments-client"
+
+client := paymentsclient.NewClient(
+    "http://localhost:6543",
+    paymentsclient.WithAuthToken("your-token"),
+)
+
+charges, err := client.V1.ListCharges(nil)
+charge, err := client.V1.GetCharge("42")
+newCharge, err := client.V1.CreateCharge(&v1.ChargesRequestSchema{
+    Amount:   1000,
+    Currency: "usd",
+})
 ```
 
 ## Installation

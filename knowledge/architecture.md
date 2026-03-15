@@ -2,7 +2,7 @@
 
 ## Overview
 
-Introspect Pyramid views and generate a client for the app. The library inspects a Pyramid application's route and view configuration at runtime, extracts endpoint metadata (paths, methods, parameters), and produces typed client code that can call those endpoints.
+Introspect Pyramid views and generate a client for the app. The library inspects a Pyramid application's route and view configuration at runtime, extracts endpoint metadata (paths, methods, parameters), and produces typed client code that can call those endpoints. Generates clients for multiple language/transport variants: Python (requests), Python (httpx), and Go.
 
 ## Components
 
@@ -21,25 +21,36 @@ A thin adapter over `pyramid-introspector` that converts its route/view hierarch
 
 ### Generator (`pyramid_client_builder.generator`)
 
-Turns a `ClientSpec` into Python source files.
+Turns a `ClientSpec` into client source files for multiple languages.
 
-- **`naming.py`** — Naming conventions for class, package, method, schema, and attribute names. Uses **NLTK WordNet** to detect verbs at the end of paths so `/charges/{id}/cancel` becomes `cancel_charge` rather than `create_charge_cancel`. Also provides `to_schema_name()` for role-based schema renaming, `needs_schema_rename()` for detecting generic schema names, and `extract_version()` for detecting API version prefixes in paths.
+- **`common.py`** — Language-agnostic shared logic: `group_by_version()` splits endpoints into versioned/unversioned groups, `rename_schemas()` renames generic schema names by role + path, `collect_schemas()` gathers unique schemas, and `iter_schemas()` iterates all schemas on an endpoint. Used by both Python and Go generators.
+- **`naming.py`** — Python naming conventions for class, package, method, schema, and attribute names. Uses **NLTK WordNet** to detect verbs at the end of paths so `/charges/{id}/cancel` becomes `cancel_charge` rather than `create_charge_cancel`. Also provides `to_schema_name()` for role-based schema renaming, `needs_schema_rename()` for detecting generic schema names, and `extract_version()` for detecting API version prefixes in paths.
+- **`go_naming.py`** — Go naming conventions: `to_go_package_name()` (lowercase, no separators), `to_go_method_name()` (PascalCase, reuses Python naming logic), `to_go_field_name()` (PascalCase for exports), `to_go_type()` (Marshmallow field type to Go type mapping), and `snake_to_camel()`/`snake_to_pascal()` for case conversion.
 - **`renderer.py`** — `render_tree()` walks a template directory tree and renders files/directories through Jinja2. Supports an `@each(var)` loop directive in directory names for dynamic repeated directories (e.g., per-version subdirectories). Files that render to whitespace-only are skipped (conditional file generation).
-- **`core.py`** — `ClientGenerator` builds a unified context (endpoints, schemas, versions dict), then calls `render_tree()` once. The template tree mirrors the output structure; no explicit per-file wiring needed.
-- **`templates/`** — Jinja2 template tree that mirrors the output directory structure:
-  - `__init__.py.j2` — Package init with imports. Uses `{% if versions %}` and `{% if schemas %}` for conditional content.
-  - `client.py.j2` — Unified HTTP client class. Handles both flat (all endpoints) and versioned (root client with version sub-client properties + unversioned endpoints) via `{% for version in versions %}` conditionals.
-  - `ext.py.j2` — Pyramid `includeme` that registers the client on the request.
-  - `schemas.py.j2` — Marshmallow schema classes. Wrapped in `{% if schemas %}` guard; skipped when no schemas exist.
-  - `@each(versions)/` — Loop directory: one subdirectory per API version. Contains `__init__.py.j2`, `client.py.j2` (version sub-client), and `schemas.py.j2` (version schemas).
+- **`core.py`** — `ClientGenerator` builds a unified context (endpoints, schemas, versions dict), then calls `render_tree()` once with the Python templates. The template tree mirrors the output structure; no explicit per-file wiring needed.
+- **`go_core.py`** — `GoClientGenerator` follows the same pattern as `ClientGenerator` but uses Go templates and Go-specific Jinja filters. Produces a Go module with `net/http` standard library client, functional options, struct params for schemas, and JSON struct tags.
+- **`templates/`** — Python Jinja2 template tree:
+  - `pyproject.toml.j2`, `README.md.j2` — Project packaging files.
+  - `{{package_name}}/` — Python package: `__init__.py.j2`, `client.py.j2`, `ext.py.j2`, `schemas.py.j2`.
+  - `{{package_name}}/@each(versions)/` — Per-version: `__init__.py.j2`, `client.py.j2`, `schemas.py.j2`.
+- **`go_templates/`** — Go Jinja2 template tree:
+  - `go.mod.j2`, `README.md.j2` — Module files.
+  - `client.go.j2` — Root Client struct with functional options, unversioned methods.
+  - `types.go.j2` — Go structs from schemas (conditional, skipped when empty).
+  - `@each(versions)/` — Per-version: `client.go.j2` (sub-client), `types.go.j2` (version structs).
 
 ### CLI (`pyramid_client_builder.cli`)
 
-A single Click command `pclient-build` that wires everything together:
+A single Click command `pclient-build` that generates all client variants:
 
 ```
-pclient-build <config.ini> --name <client-name> --output <dir> [--http-client requests|httpx] [--debug]
+pclient-build <config.ini> --name <client-name> --output <dir> [--go-module <module>] [--debug]
 ```
+
+Generates three variant subdirectories under `--output`:
+- `python_requests/` — Python client using `requests`
+- `python_httpx/` — Python client using `httpx`
+- `go/` — Go client using `net/http`
 
 ## Data Flow
 
@@ -55,14 +66,14 @@ INI file
       ├── _deduplicate() → first occurrence per path+method
       └── _collect_schemas() → unique schemas
   → ClientSpec (endpoints + deduplicated schemas)
-  → ClientGenerator
-      ├── _group_by_version() → splits endpoints into versioned/unversioned
-      ├── _rename_schemas() → renames generic schema names by role + path
-      ├── _annotate_endpoints() → assigns Python method names (with verb detection)
-      └── render_tree(templates/, package_dir, context)
-            ├── Root templates → __init__.py, client.py, ext.py, schemas.py (if schemas)
-            └── @each(versions)/ → per version: v{n}/__init__.py, v{n}/client.py, v{n}/schemas.py (if schemas)
-  → Output package on disk
+  → CLI loops over generators:
+      ├── ClientGenerator(http_client="requests")
+      │     └── render_tree(templates/, python_requests/, context)
+      ├── ClientGenerator(http_client="httpx")
+      │     └── render_tree(templates/, python_httpx/, context)
+      └── GoClientGenerator
+            └── render_tree(go_templates/, go/, context)
+  → Output variants on disk
 ```
 
 ## External Dependencies
@@ -72,6 +83,7 @@ INI file
 | `pyramid-introspector[cornice]` | Route/view discovery, Cornice/pycornmarsh schema extraction (brings in `pyramid` and `setuptools` transitively) |
 | `click` | CLI interface |
 | `jinja2` | Template rendering for code generation |
-| `requests` or `httpx` | HTTP transport in the generated client (selected via `--http-client`) |
-| `marshmallow` | Schema-based serialization/deserialization in the generated client (when schemas are present) |
+| `requests` or `httpx` | HTTP transport in the generated Python client (both variants generated) |
+| `marshmallow` | Schema-based serialization/deserialization in the generated Python client (when schemas are present) |
 | `nltk` | WordNet verb detection for smarter method naming |
+| `net/http` (Go stdlib) | HTTP transport in the generated Go client (no external Go dependencies) |
