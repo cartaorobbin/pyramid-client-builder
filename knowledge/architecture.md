@@ -38,7 +38,7 @@ Turns a `ClientSpec` into Python source files.
 A single Click command `pclient-build` that wires everything together:
 
 ```
-pclient-build <config.ini> --name <client-name> --output <dir> [--debug]
+pclient-build <config.ini> --name <client-name> --output <dir> [--http-client requests|httpx] [--debug]
 ```
 
 ## Data Flow
@@ -72,6 +72,6 @@ INI file
 | `pyramid-introspector[cornice]` | Route/view discovery, Cornice/pycornmarsh schema extraction (brings in `pyramid` and `setuptools` transitively) |
 | `click` | CLI interface |
 | `jinja2` | Template rendering for code generation |
-| `requests` | HTTP transport in the generated client |
+| `requests` or `httpx` | HTTP transport in the generated client (selected via `--http-client`) |
 | `marshmallow` | Schema-based serialization/deserialization in the generated client (when schemas are present) |
 | `nltk` | WordNet verb detection for smarter method naming |

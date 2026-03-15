@@ -4,7 +4,11 @@ version = "{{ client_version }}"
 description = "Auto-generated HTTP client for {{ spec.name }}."
 requires-python = ">=3.10"
 dependencies = [
+{% if http_client == "httpx" %}
+    "httpx>=0.24",
+{% else %}
     "requests>=2.28",
+{% endif %}
 {% if has_schemas %}
     "marshmallow>=3.0",
 {% endif %}

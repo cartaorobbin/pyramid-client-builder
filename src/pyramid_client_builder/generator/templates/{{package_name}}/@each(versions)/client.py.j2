@@ -1,6 +1,12 @@
-"""{{ version }} HTTP client for {{ spec.name }}."""
+"""{{ spec.name }} {{ version }} HTTP sub-client."""
 
 import logging
+
+{% if http_client == "httpx" %}
+import httpx
+{% else %}
+import requests
+{% endif %}
 {% if schemas %}
 
 from {{ package_name }}.{{ version }}.schemas import (
@@ -14,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 class {{ version_class_name }}:
-    """{{ version }} endpoints for the {{ spec.name }} Pyramid application."""
+    """Auto-generated {{ version }} sub-client for {{ spec.name }}."""
 
     def __init__(self, base_url, session, timeout):
         self.base_url = base_url

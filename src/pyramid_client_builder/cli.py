@@ -47,8 +47,17 @@ logger = logging.getLogger(__name__)
     show_default=True,
     help="Version for the generated client package.",
 )
+@click.option(
+    "--http-client",
+    type=click.Choice(["requests", "httpx"]),
+    default="requests",
+    show_default=True,
+    help="HTTP library for the generated client.",
+)
 @click.option("--debug", is_flag=True, help="Enable debug logging.")
-def pclient_build(ini_file, name, output, include, exclude, client_version, debug):
+def pclient_build(
+    ini_file, name, output, include, exclude, client_version, http_client, debug
+):
     """Generate an HTTP client from a Pyramid application's routes.
 
     Boots the Pyramid app from INI_FILE, introspects its routes and Cornice
@@ -92,7 +101,9 @@ def pclient_build(ini_file, name, output, include, exclude, client_version, debu
             )
             raise SystemExit(1)
 
-        generator = ClientGenerator(spec, version=client_version)
+        generator = ClientGenerator(
+            spec, version=client_version, http_client=http_client
+        )
         package_dir = generator.generate(output)
 
         click.echo(f"Generated {generator.class_name} at {package_dir}", err=True)

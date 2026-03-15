@@ -2,7 +2,11 @@
 
 import logging
 
+{% if http_client == "httpx" %}
+import httpx
+{% else %}
 import requests
+{% endif %}
 {% for version in versions %}
 from {{ package_name }}.{{ version }}.client import {{ version | version_class_name }}
 {% endfor %}
@@ -24,7 +28,11 @@ class {{ class_name }}:
     def __init__(self, base_url, auth_token=None, timeout=30):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+{% if http_client == "httpx" %}
+        self.session = httpx.Client()
+{% else %}
         self.session = requests.Session()
+{% endif %}
         if auth_token:
             self.session.headers["Authorization"] = f"Bearer {auth_token}"
 {% for version in versions %}

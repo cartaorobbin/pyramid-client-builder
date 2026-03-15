@@ -800,3 +800,123 @@ class TestProjectPackaging:
         content = (package_dir.parent / "README.md").read_text()
         assert "testapp_client.ext" in content
         assert "request.testapp_client" in content
+
+
+# ======================================================================
+# HTTP client backend (requests vs httpx)
+# ======================================================================
+
+
+class TestHttpClientOption:
+    """Verify the --http-client option generates correct backend code."""
+
+    def test_default_backend_is_requests(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        assert gen.http_client == "requests"
+
+    def test_requests_root_client_imports_requests(
+        self, simple_spec, tmp_path
+    ):
+        gen = ClientGenerator(simple_spec, http_client="requests")
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "import requests" in source
+        assert "import httpx" not in source
+
+    def test_requests_root_client_creates_session(
+        self, simple_spec, tmp_path
+    ):
+        gen = ClientGenerator(simple_spec, http_client="requests")
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "self.session = requests.Session()" in source
+        assert "httpx.Client()" not in source
+
+    def test_httpx_root_client_imports_httpx(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "import httpx" in source
+        assert "import requests" not in source
+
+    def test_httpx_root_client_creates_client(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "self.session = httpx.Client()" in source
+        assert "requests.Session()" not in source
+
+    def test_httpx_v1_client_imports_httpx(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "import httpx" in v1_source
+        assert "import requests" not in v1_source
+
+    def test_requests_v1_client_imports_requests(
+        self, simple_spec, tmp_path
+    ):
+        gen = ClientGenerator(simple_spec, http_client="requests")
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "import requests" in v1_source
+        assert "import httpx" not in v1_source
+
+    def test_httpx_pyproject_depends_on_httpx(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert "httpx>=" in content
+        assert "requests" not in content
+
+    def test_requests_pyproject_depends_on_requests(
+        self, simple_spec, tmp_path
+    ):
+        gen = ClientGenerator(simple_spec, http_client="requests")
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert "requests>=" in content
+        assert "httpx" not in content
+
+    def test_httpx_generated_files_are_valid_python(
+        self, simple_spec, tmp_path
+    ):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+    def test_httpx_example_app_valid_python(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+    def test_httpx_flat_output_valid_python(self, flat_spec, tmp_path):
+        gen = ClientGenerator(flat_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+    def test_httpx_preserves_endpoint_methods(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        root_source = (package_dir / "client.py").read_text()
+        assert "def get_home(self):" in root_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "def list_items(" in v1_source
+        assert "def create_item(" in v1_source
+
+    def test_httpx_preserves_session_method_calls(
+        self, simple_spec, tmp_path
+    ):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        root_source = (package_dir / "client.py").read_text()
+        assert "self.session.get(" in root_source
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "self.session.get(" in v1_source
+        assert "self.session.post(" in v1_source
