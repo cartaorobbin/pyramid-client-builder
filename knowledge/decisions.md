@@ -236,3 +236,15 @@ Use this format when adding a new decision:
 **Decision**: Add a `--http-client` CLI option with choices `requests` (default) and `httpx`. The `ClientGenerator` accepts an `http_client` parameter and passes it into the Jinja2 template context. Templates use `{% if http_client == "httpx" %}` conditionals to switch between `import requests` / `requests.Session()` and `import httpx` / `httpx.Client()`. The generated `pyproject.toml` declares the matching dependency (`requests>=2.28` or `httpx>=0.24`). Only synchronous httpx is supported in this iteration — `httpx.Client` is a sync drop-in for `requests.Session` with an identical method API (`.get()`, `.post()`, `.headers`, `response.raise_for_status()`, `response.json()`).
 
 **Consequences**: Users can choose their preferred HTTP library at generation time. Default behavior is unchanged (requests). The Jinja-conditional approach keeps a single template tree — no duplication. Async httpx (`httpx.AsyncClient`) can be added later as a third option. The builder itself does not depend on either library at runtime; they are only dependencies of the generated client.
+
+---
+
+### 2026-03-15 — Pre-commit hooks, Makefile, and agent quality gate
+
+**Status**: Accepted
+
+**Context**: CI caught a black formatting issue on PR #11 that could have been caught locally. There was no pre-commit hook, no convenient `make` targets, and no agent rule to enforce checks before creating PRs.
+
+**Decision**: Add three layers of quality assurance: (1) a `.pre-commit-config.yaml` with ruff (auto-fix) and black hooks that run on every commit, (2) a `Makefile` with `lint`, `fix`, `test`, and `check` targets (`make check` = lint + test, the full gate), and (3) a Cursor agent rule (`.cursor/rules/pre-pr-check.mdc`) that requires running `make check` before creating any PR. The dev-workflow skill is updated with a "Quality Gate" step between execution and PR creation.
+
+**Consequences**: Formatting and lint issues are caught at commit time (pre-commit) or at PR time (agent rule + `make check`). Developers get convenient shortcuts (`make fix`, `make check`). The agent cannot skip checks before PRs. Three layers provide defense in depth: pre-commit for devs, `make check` for the agent, and CI as the final backstop.

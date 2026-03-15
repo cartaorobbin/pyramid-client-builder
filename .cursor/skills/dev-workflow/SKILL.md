@@ -118,9 +118,19 @@ Throughout execution, keep the issue and TodoWrite aligned:
 - If the plan needs adjustment mid-execution, update both the TodoWrite list and post an updated plan comment on the issue
 - If new tasks emerge, add them to both TodoWrite and the issue
 
-## Step 7: Pull Request
+## Step 7: Quality Gate
 
-When all tasks are complete:
+Before creating the PR, run the full quality check:
+
+```bash
+make check
+```
+
+This runs lint (ruff + black) and the full test suite. If anything fails, fix the issues and re-run until it passes. **Never create a PR with a failing `make check`.**
+
+## Step 8: Pull Request
+
+When all tasks are complete and `make check` passes:
 
 1. Ensure all changes are committed
 2. Push the branch: `git push`
@@ -147,7 +157,7 @@ EOF
 
 5. Tell the user the PR is ready for review and provide the PR URL.
 
-## Step 8: Release
+## Step 9: Release
 
 > This step only applies to projects with a release flow.
 
@@ -174,7 +184,7 @@ gh release create v<version> --generate-notes --title "v<version>"
 
 4. Tell the user the release has been created and provide the URL.
 
-## Step 9: End
+## Step 10: End
 
 Summarize what was accomplished:
 - Issue number and title
