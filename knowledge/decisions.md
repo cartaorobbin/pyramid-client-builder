@@ -248,3 +248,15 @@ Use this format when adding a new decision:
 **Decision**: Add three layers of quality assurance: (1) a `.pre-commit-config.yaml` with ruff (auto-fix) and black hooks that run on every commit, (2) a `Makefile` with `lint`, `fix`, `test`, and `check` targets (`make check` = lint + test, the full gate), and (3) a Cursor agent rule (`.cursor/rules/pre-pr-check.mdc`) that requires running `make check` before creating any PR. The dev-workflow skill is updated with a "Quality Gate" step between execution and PR creation.
 
 **Consequences**: Formatting and lint issues are caught at commit time (pre-commit) or at PR time (agent rule + `make check`). Developers get convenient shortcuts (`make fix`, `make check`). The agent cannot skip checks before PRs. Three layers provide defense in depth: pre-commit for devs, `make check` for the agent, and CI as the final backstop.
+
+---
+
+### 2026-03-15 — Go client generation and multi-variant output
+
+**Status**: Accepted (extends "Build-time CLI code generation", supersedes "HTTP transport via `requests`" option behavior)
+
+**Context**: The generated client only supported Python. Users wanted Go clients from the same introspected Pyramid APIs. Additionally, generating both `requests` and `httpx` Python variants required separate CLI invocations with `--http-client`.
+
+**Decision**: Add Go client generation using the same `ClientSpec` pipeline. Restructure the CLI to generate all language/transport variants (python_requests, python_httpx, go) in a single invocation, each into its own subdirectory under `--output`. Remove the `--http-client` option (both Python variants are always generated). Add `--go-module` for customizing the Go module path. Shared logic (version grouping, schema renaming, schema collecting) is extracted from `core.py` into `generator/common.py` for reuse by both `ClientGenerator` and `GoClientGenerator`. Go templates use idiomatic patterns: functional options, `net/http` standard library, struct params for schemas, `json` struct tags, and `(T, error)` returns.
+
+**Consequences**: A single `pclient-build` invocation now produces three client variants. The Go client uses idiomatic Go patterns (functional options, struct params, `net/http`). The shared `common.py` module makes adding new target languages straightforward. The `--http-client` option is removed — this is a breaking CLI change but the project is pre-1.0. Go struct types are generated from Marshmallow `SchemaInfo` with proper JSON tags and Go type mapping.

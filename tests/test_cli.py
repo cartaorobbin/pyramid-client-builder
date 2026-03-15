@@ -9,7 +9,7 @@ from pyramid_client_builder.cli import pclient_build
 
 class TestPclientBuild:
 
-    def test_generates_client_package(self, tmp_path):
+    def test_generates_all_variants(self, tmp_path):
         runner = CliRunner()
         result = runner.invoke(
             pclient_build,
@@ -22,13 +22,11 @@ class TestPclientBuild:
             ],
         )
         assert result.exit_code == 0, result.output
-        package_dir = tmp_path / "example_client"
-        assert package_dir.exists()
-        assert (package_dir / "client.py").exists()
-        assert (package_dir / "ext.py").exists()
-        assert (package_dir / "__init__.py").exists()
+        assert (tmp_path / "python_requests").is_dir()
+        assert (tmp_path / "python_httpx").is_dir()
+        assert (tmp_path / "go").is_dir()
 
-    def test_generated_code_is_valid(self, tmp_path):
+    def test_python_requests_variant(self, tmp_path):
         runner = CliRunner()
         result = runner.invoke(
             pclient_build,
@@ -41,9 +39,85 @@ class TestPclientBuild:
             ],
         )
         assert result.exit_code == 0, result.output
-        for py_file in (tmp_path / "example_client").glob("*.py"):
-            source = py_file.read_text()
-            ast.parse(source, filename=str(py_file))
+        pkg = tmp_path / "python_requests" / "example_client"
+        assert pkg.exists()
+        assert (pkg / "client.py").exists()
+        assert (pkg / "ext.py").exists()
+        assert (pkg / "__init__.py").exists()
+
+    def test_python_httpx_variant(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        pkg = tmp_path / "python_httpx" / "example_client"
+        assert pkg.exists()
+        assert (pkg / "client.py").exists()
+        source = (pkg / "client.py").read_text()
+        assert "import httpx" in source
+
+    def test_go_variant(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        go_dir = tmp_path / "go"
+        assert (go_dir / "go.mod").exists()
+        assert (go_dir / "client.go").exists()
+
+    def test_python_requests_uses_requests(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        source = (
+            tmp_path / "python_requests" / "example_client" / "client.py"
+        ).read_text()
+        assert "import requests" in source
+        assert "import httpx" not in source
+
+    def test_generated_python_is_valid(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        for variant in ("python_requests", "python_httpx"):
+            pkg = tmp_path / variant / "example_client"
+            for py_file in pkg.rglob("*.py"):
+                source = py_file.read_text()
+                ast.parse(source, filename=str(py_file))
 
     def test_debug_flag_shows_endpoints(self, tmp_path):
         runner = CliRunner()
@@ -135,3 +209,38 @@ class TestPclientBuild:
         )
         assert result.exit_code == 0, result.output
         assert "/api/v1/invoices" not in result.output
+
+    def test_go_module_option(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--go-module",
+                "github.com/myorg/example-client",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        content = (tmp_path / "go" / "go.mod").read_text()
+        assert "module github.com/myorg/example-client" in content
+
+    def test_output_summary_mentions_variants(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "python_requests" in result.output
+        assert "python_httpx" in result.output
+        assert "go" in result.output
