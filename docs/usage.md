@@ -1,8 +1,10 @@
 # Usage Guide
 
-## Standalone usage
+## Python client
 
-The generated client works as a regular Python HTTP client with no Pyramid dependency:
+### Standalone usage
+
+The generated Python client works as a regular HTTP client with no Pyramid dependency:
 
 ```python
 from payments_client.client import PaymentsClient
@@ -14,7 +16,7 @@ client = PaymentsClient(
 )
 ```
 
-### Constructor parameters
+#### Constructor parameters
 
 | Parameter | Type | Default | Description |
 |---|---|---|---|
@@ -22,9 +24,9 @@ client = PaymentsClient(
 | `auth_token` | `str` | `None` | Bearer token added to the `Authorization` header. |
 | `timeout` | `int` | `30` | Request timeout in seconds. |
 
-### Session access
+#### Session access
 
-The client exposes its `requests.Session` for advanced configuration:
+The client exposes its HTTP session for advanced configuration:
 
 ```python
 client = PaymentsClient(base_url="http://localhost:6543")
@@ -41,11 +43,11 @@ adapter = HTTPAdapter(max_retries=3)
 client.session.mount("http://", adapter)
 ```
 
-## Pyramid integration
+### Pyramid integration
 
 For Pyramid-to-Pyramid service calls, the generated `ext.py` provides seamless integration.
 
-### Setup
+#### Setup
 
 1. Add settings to your INI file:
 
@@ -79,11 +81,11 @@ For Pyramid-to-Pyramid service calls, the generated `ext.py` provides seamless i
 
 The client is created once per request (`reify=True`) — multiple accesses within the same request reuse the same instance.
 
-## Method signatures
+### Python method signatures
 
 Every generated method follows consistent conventions:
 
-### Path parameters → positional arguments
+#### Path parameters → positional arguments
 
 URL path parameters become required arguments:
 
@@ -95,7 +97,7 @@ charge = client.get_charge(id=42)
 card = client.update_card(customer_id=1, card_id=5, last4="1234")
 ```
 
-### Body parameters → keyword arguments
+#### Body parameters → keyword arguments
 
 Request body fields become keyword arguments:
 
@@ -106,7 +108,7 @@ charge = client.create_charge(amount=1000, currency="usd")
 
 When a request schema exists, the arguments are passed through `schema.dump()` before being sent as JSON. This gives you the same validation and type coercion the server applies on its end.
 
-### Querystring parameters → optional keyword arguments
+#### Querystring parameters → optional keyword arguments
 
 Querystring fields become optional keyword arguments:
 
@@ -117,7 +119,7 @@ charges = client.list_charges(status="pending", limit=10)
 
 `None` values are excluded from the query string.
 
-## Schema serialization
+### Python schema serialization
 
 When your endpoints have Marshmallow schemas, the generated client uses them for serialization:
 
@@ -134,7 +136,7 @@ charge = client.create_charge(amount=1000, currency="usd")
 
 Endpoints without schemas fall back to raw dicts — `response.json()` is returned directly.
 
-## Error handling
+### Python error handling
 
 The generated client calls `response.raise_for_status()` on every response. This raises `requests.HTTPError` for 4xx/5xx status codes:
 
@@ -148,7 +150,7 @@ except HTTPError as e:
     print(f"Body: {e.response.json()}")
 ```
 
-## Versioned APIs
+### Python versioned APIs
 
 When your API has versioned paths, the root client provides sub-client properties:
 
@@ -164,3 +166,117 @@ health = client.get_health()
 ```
 
 All version sub-clients share the root client's session, so authentication and other session configuration is set up once.
+
+---
+
+## Go client
+
+### Standalone usage
+
+The generated Go client uses only the standard library (`net/http` and `encoding/json`):
+
+```go
+import paymentsclient "payments-client"
+
+client := paymentsclient.NewClient(
+    "http://localhost:6543",
+    paymentsclient.WithAuthToken("your-token"),
+    paymentsclient.WithTimeout(60),
+)
+```
+
+#### Constructor
+
+`NewClient(baseURL string, opts ...Option) *Client` creates a client with functional options:
+
+| Option | Description |
+|---|---|
+| `WithAuthToken(token)` | Set the Bearer token for the `Authorization` header. |
+| `WithTimeout(seconds)` | Set the request timeout (default: 30s). |
+| `WithHTTPClient(client)` | Provide a custom `*http.Client` for full control. |
+
+### Go method signatures
+
+Methods follow idiomatic Go patterns. When a request schema exists, the method accepts a pointer to a request struct:
+
+#### Path parameters → individual string arguments
+
+```go
+// GET /api/v1/charges/{id}
+charge, err := client.V1.GetCharge("42")
+```
+
+#### Request body → struct pointer
+
+```go
+// POST /api/v1/charges
+charge, err := client.V1.CreateCharge(&v1.ChargesRequestSchema{
+    Amount:   1000,
+    Currency: "usd",
+})
+```
+
+Pass `nil` when you have no body to send (e.g., for GET requests with no query schema).
+
+#### Return types
+
+Methods return a tuple of the response type and an error:
+
+```go
+// When a response schema exists:
+charge, err := client.V1.GetCharge("42")
+// charge is *ChargeResponseSchema
+
+// When no response schema exists:
+result, err := client.GetHealth()
+// result is map[string]interface{}
+```
+
+### Go error handling
+
+Non-2xx responses produce a Go error with the status code:
+
+```go
+charge, err := client.V1.GetCharge("999")
+if err != nil {
+    // err contains the HTTP status code and response body
+    log.Printf("request failed: %v", err)
+}
+```
+
+### Go versioned APIs
+
+When your API has versioned paths, the root client exposes version sub-clients as exported fields:
+
+```go
+client := paymentsclient.NewClient("http://localhost:6543")
+
+// Access version-specific endpoints
+v1Charges, err := client.V1.ListCharges(nil)
+v2Charges, err := client.V2.ListCharges(nil)
+
+// Unversioned endpoints stay on the root client
+health, err := client.GetHealth()
+```
+
+All version sub-clients share the root client's `*http.Client` and auth configuration.
+
+### Go JSON serialization
+
+Request structs are serialized with `encoding/json` before sending. Response bodies are deserialized into the corresponding struct via `json.NewDecoder`. Struct fields have `json:"name"` tags, and optional fields use `omitempty`:
+
+```go
+type ChargesRequestSchema struct {
+    Amount   int    `json:"amount"`
+    Currency string `json:"currency"`
+}
+
+type ChargeResponseSchema struct {
+    ID       *int    `json:"id,omitempty"`
+    Amount   *int    `json:"amount,omitempty"`
+    Currency *string `json:"currency,omitempty"`
+    Status   *string `json:"status,omitempty"`
+}
+```
+
+Optional fields use pointer types so that zero values (`0`, `""`, `false`) can be distinguished from absent values.
