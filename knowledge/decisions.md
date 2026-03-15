@@ -224,3 +224,15 @@ Use this format when adding a new decision:
 **Decision**: Restructure the Jinja2 template tree so `render_tree` outputs a complete project directory, not just the Python package. A `{{package_name}}/` directory template wraps the existing package files, and project-level files (`pyproject.toml.j2`, `README.md.j2`) sit at the template root. The generated `pyproject.toml` uses hatchling as the build backend, declares `requests` as a core dependency, `marshmallow` conditionally (only when schemas exist), and `pyramid` as an optional extra (for `ext.py`). A new `--client-version` CLI option (default `0.1.0`) sets the package version. The `ClientGenerator` accepts a `version` parameter and includes `project_name`, `client_version`, and `has_schemas` in the template context.
 
 **Consequences**: The generated output is immediately installable (`pip install ./generated/`) and publishable to PyPI. No manual packaging steps needed after regeneration. The `--client-version` flag lets build pipelines control the version. Backward compatible — `generate()` still returns the package directory path, all existing tests pass unchanged. The template tree restructure maintains the "template mirrors output" design philosophy.
+
+---
+
+### 2026-03-15 — Configurable HTTP client backend (requests/httpx)
+
+**Status**: Accepted (extends "HTTP transport via `requests`")
+
+**Context**: The generated client hardcoded `requests` as the HTTP transport. Some consuming projects already use `httpx` and prefer not to add `requests` as a dependency. Additionally, `httpx` provides a natural path to async support in the future.
+
+**Decision**: Add a `--http-client` CLI option with choices `requests` (default) and `httpx`. The `ClientGenerator` accepts an `http_client` parameter and passes it into the Jinja2 template context. Templates use `{% if http_client == "httpx" %}` conditionals to switch between `import requests` / `requests.Session()` and `import httpx` / `httpx.Client()`. The generated `pyproject.toml` declares the matching dependency (`requests>=2.28` or `httpx>=0.24`). Only synchronous httpx is supported in this iteration — `httpx.Client` is a sync drop-in for `requests.Session` with an identical method API (`.get()`, `.post()`, `.headers`, `response.raise_for_status()`, `response.json()`).
+
+**Consequences**: Users can choose their preferred HTTP library at generation time. Default behavior is unchanged (requests). The Jinja-conditional approach keeps a single template tree — no duplication. Async httpx (`httpx.AsyncClient`) can be added later as a third option. The builder itself does not depend on either library at runtime; they are only dependencies of the generated client.

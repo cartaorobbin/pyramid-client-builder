@@ -25,7 +25,7 @@ Key domain concepts, terminology, and mental models for this project.
 | **Schema renaming** | The generator renames schemas whose names lack a role suffix (e.g., `ChargeSchema`) based on the endpoint path + usage role. `ChargeSchema` on `POST /api/v1/charges` becomes `ChargesRequestSchema`. Schemas that already have role suffixes (`RequestSchema`, `ResponseSchema`, `QuerySchema`, `BodySchema`, `PathSchema`, `ErrorSchema`) are left unchanged. |
 | **Role suffix** | A schema name suffix that communicates how the schema is used: `RequestSchema` (body), `ResponseSchema` (response), `QuerySchema` (querystring), `BodySchema` (body in composite), `PathSchema` (path params), `ErrorSchema` (error responses). |
 | **Versioned output** | When endpoints have API version prefixes (`/api/v1/...`), the generator creates per-version subdirectories (`v1/`, `v2/`). Each version has its own `client.py` and `schemas.py`. A root client aggregates versions as properties (`client.v1.list_charges()`). |
-| **Version sub-client** | A per-version client class (e.g., `V1Client`) that receives a shared `requests.Session` from the root client. Contains only the endpoints belonging to that API version. |
+| **Version sub-client** | A per-version client class (e.g., `V1Client`) that receives a shared session (`requests.Session` or `httpx.Client`) from the root client. Contains only the endpoints belonging to that API version. |
 
 ## Mental Models
 

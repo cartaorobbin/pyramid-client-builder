@@ -34,9 +34,15 @@ _TEMPLATES_DIR = package_files("pyramid_client_builder.generator").joinpath("tem
 class ClientGenerator:
     """Generates a Python client package from a ClientSpec."""
 
-    def __init__(self, spec: ClientSpec, version: str = "0.1.0"):
+    def __init__(
+        self,
+        spec: ClientSpec,
+        version: str = "0.1.0",
+        http_client: str = "requests",
+    ):
         self.spec = spec
         self.version = version
+        self.http_client = http_client
         self.class_name = to_class_name(spec.name)
         self.package_name = to_package_name(spec.name)
         self.project_name = to_project_name(spec.name)
@@ -85,6 +91,7 @@ class ClientGenerator:
             "package_name": self.package_name,
             "project_name": self.project_name,
             "client_version": self.version,
+            "http_client": self.http_client,
             "has_schemas": has_schemas,
             "request_attr": self.request_attr,
             "versions": versions_ctx,

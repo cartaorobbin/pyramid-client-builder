@@ -1,5 +1,13 @@
-"""{{ version }} API client for {{ spec.name }}."""
+"""{{ spec.name }} {{ version }} client."""
 
 from {{ package_name }}.{{ version }}.client import {{ version_class_name }}
+{% if schemas %}
+from {{ package_name }}.{{ version }} import schemas
+{% endif %}
 
-__all__ = ["{{ version_class_name }}"]
+__all__ = [
+    "{{ version_class_name }}",
+{% if schemas %}
+    "schemas",
+{% endif %}
+]
