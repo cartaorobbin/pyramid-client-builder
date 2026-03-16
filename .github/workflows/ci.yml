@@ -46,9 +46,28 @@ jobs:
       - name: Test
         run: uvx --with tox-uv tox -e ${{ matrix.tox-env }}
 
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Smoke tests
+        run: uv run pytest tests/test_smoke.py -v
+
   publish:
     if: github.event_name == 'release'
-    needs: [lint, test]
+    needs: [lint, test, smoke]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -71,7 +90,7 @@ jobs:
 
   docs:
     if: github.event_name == 'release'
-    needs: [lint, test]
+    needs: [lint, test, smoke]
     runs-on: ubuntu-latest
     permissions:
       contents: write

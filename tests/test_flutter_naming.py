@@ -158,13 +158,13 @@ class TestDartType:
     def test_datetime_optional(self):
         assert to_dart_type("DateTime", required=False) == "DateTime?"
 
-    def test_list_always_list(self):
+    def test_list(self):
         assert to_dart_type("List", required=True) == "List<dynamic>"
-        assert to_dart_type("List", required=False) == "List<dynamic>"
+        assert to_dart_type("List", required=False) == "List<dynamic>?"
 
     def test_dict(self):
         assert to_dart_type("Dict", required=True) == "Map<String, dynamic>"
-        assert to_dart_type("Dict", required=False) == "Map<String, dynamic>"
+        assert to_dart_type("Dict", required=False) == "Map<String, dynamic>?"
 
     def test_uuid_is_string(self):
         assert to_dart_type("UUID", required=True) == "String"
