@@ -2,7 +2,7 @@
 
 ## Overview
 
-Introspect Pyramid views and generate a client for the app. The library inspects a Pyramid application's route and view configuration at runtime, extracts endpoint metadata (paths, methods, parameters), and produces typed client code that can call those endpoints. Generates clients for multiple language/transport variants: Python (requests), Python (httpx), and Go.
+Introspect Pyramid views and generate a client for the app. The library inspects a Pyramid application's route and view configuration at runtime, extracts endpoint metadata (paths, methods, parameters), and produces typed client code that can call those endpoints. Generates clients for multiple language/transport variants: Python (requests), Python (httpx), Go, and Flutter/Dart.
 
 ## Components
 
@@ -23,13 +23,15 @@ A thin adapter over `pyramid-introspector` that converts its route/view hierarch
 
 Turns a `ClientSpec` into client source files for multiple languages.
 
-- **`common.py`** — Language-agnostic shared logic: `group_by_version()` splits endpoints into versioned/unversioned groups, `rename_schemas()` renames generic schema names by role + path, `collect_schemas()` gathers unique schemas, and `iter_schemas()` iterates all schemas on an endpoint. Used by both Python and Go generators.
+- **`common.py`** — Language-agnostic shared logic: `group_by_version()` splits endpoints into versioned/unversioned groups, `rename_schemas()` renames generic schema names by role + path, `collect_schemas()` gathers unique schemas, and `iter_schemas()` iterates all schemas on an endpoint. Used by Python, Go, and Flutter generators.
 - **`naming.py`** — Python naming conventions for class, package, method, schema, and attribute names. Uses **NLTK WordNet** to detect verbs at the end of paths so `/charges/{id}/cancel` becomes `cancel_charge` rather than `create_charge_cancel`. Also provides `to_schema_name()` for role-based schema renaming, `needs_schema_rename()` for detecting generic schema names, and `extract_version()` for detecting API version prefixes in paths.
 - **`go_naming.py`** — Go naming conventions: `to_go_package_name()` (lowercase, no separators), `to_go_method_name()` (PascalCase, reuses Python naming logic), `to_go_field_name()` (PascalCase for exports), `to_go_type()` (Marshmallow field type to Go type mapping), and `snake_to_camel()`/`snake_to_pascal()` for case conversion.
-- **`renderer.py`** — `render_tree()` walks a template directory tree and renders files/directories through Jinja2. Supports an `@each(var)` loop directive in directory names for dynamic repeated directories (e.g., per-version subdirectories). Files that render to whitespace-only are skipped (conditional file generation).
+- **`flutter_naming.py`** — Dart naming conventions: `to_dart_package_name()` (snake_case), `to_dart_class_name()` (PascalCase), `to_dart_method_name()` (camelCase, reuses Python naming logic), `to_dart_field_name()` (camelCase), `to_dart_type()` (Marshmallow field type to Dart type mapping with nullable support), and `to_dart_version_field()`/`to_dart_version_class()` for versioned clients.
+- **`renderer.py`** — `render_tree()` walks a template directory tree and renders files/directories through Jinja2. Both directory names and file names support Jinja expressions (e.g., `{{package_name}}.dart.j2`). Supports an `@each(var)` loop directive in directory names for dynamic repeated directories (e.g., per-version subdirectories). Files that render to whitespace-only are skipped (conditional file generation).
 - **`core.py`** — `ClientGenerator` builds a unified context (endpoints, schemas, versions dict), then calls `render_tree()` once with the Python templates. The template tree mirrors the output structure; no explicit per-file wiring needed.
 - **`go_core.py`** — `GoClientGenerator` follows the same pattern as `ClientGenerator` but uses Go templates and Go-specific Jinja filters. Produces a Go module with `net/http` standard library client, functional options, struct params for schemas, and JSON struct tags.
-- **`templates/`** — Python Jinja2 template tree:
+- **`flutter_core.py`** — `FlutterClientGenerator` follows the same pattern as `GoClientGenerator` but uses Dart templates and Dart-specific Jinja filters. Produces a Dart package using the `http` library, async methods returning `Future<T>`, model classes with `fromJson`/`toJson`, and nullable types for optional fields.
+- **`python_templates/`** — Python Jinja2 template tree:
   - `pyproject.toml.j2`, `README.md.j2` — Project packaging files.
   - `{{package_name}}/` — Python package: `__init__.py.j2`, `client.py.j2`, `ext.py.j2`, `schemas.py.j2`.
   - `{{package_name}}/@each(versions)/` — Per-version: `__init__.py.j2`, `client.py.j2`, `schemas.py.j2`.
@@ -38,19 +40,26 @@ Turns a `ClientSpec` into client source files for multiple languages.
   - `client.go.j2` — Root Client struct with functional options, unversioned methods.
   - `types.go.j2` — Go structs from schemas (conditional, skipped when empty).
   - `@each(versions)/` — Per-version: `client.go.j2` (sub-client), `types.go.j2` (version structs).
+- **`flutter_templates/`** — Flutter/Dart Jinja2 template tree:
+  - `pubspec.yaml.j2`, `README.md.j2` — Package manifest and documentation.
+  - `lib/{{package_name}}.dart.j2` — Barrel export file (dynamic file name).
+  - `lib/src/client.dart.j2` — Root client class with constructor, auth, version sub-clients.
+  - `lib/src/models.dart.j2` — Dart model classes with `fromJson`/`toJson` (conditional).
+  - `lib/src/@each(versions)/` — Per-version: `client.dart.j2` (sub-client), `models.dart.j2` (version models).
 
 ### CLI (`pyramid_client_builder.cli`)
 
 A single Click command `pclient-build` that generates all client variants:
 
 ```
-pclient-build <config.ini> --name <client-name> --output <dir> [--go-module <module>] [--debug]
+pclient-build <config.ini> --name <client-name> --output <dir> [--go-module <module>] [--flutter-package <pkg>] [--debug]
 ```
 
-Generates three variant subdirectories under `--output`:
+Generates four variant subdirectories under `--output`:
 - `python_requests/` — Python client using `requests`
 - `python_httpx/` — Python client using `httpx`
 - `go/` — Go client using `net/http`
+- `flutter/` — Dart client using the `http` package
 
 ## Data Flow
 
@@ -68,11 +77,13 @@ INI file
   → ClientSpec (endpoints + deduplicated schemas)
   → CLI loops over generators:
       ├── ClientGenerator(http_client="requests")
-      │     └── render_tree(templates/, python_requests/, context)
+      │     └── render_tree(python_templates/, python_requests/, context)
       ├── ClientGenerator(http_client="httpx")
-      │     └── render_tree(templates/, python_httpx/, context)
-      └── GoClientGenerator
-            └── render_tree(go_templates/, go/, context)
+      │     └── render_tree(python_templates/, python_httpx/, context)
+      ├── GoClientGenerator
+      │     └── render_tree(go_templates/, go/, context)
+      └── FlutterClientGenerator
+            └── render_tree(flutter_templates/, flutter/, context)
   → Output variants on disk
 ```
 
@@ -87,3 +98,4 @@ INI file
 | `marshmallow` | Schema-based serialization/deserialization in the generated Python client (when schemas are present) |
 | `nltk` | WordNet verb detection for smarter method naming |
 | `net/http` (Go stdlib) | HTTP transport in the generated Go client (no external Go dependencies) |
+| `http` (Dart package) | HTTP transport in the generated Flutter/Dart client |

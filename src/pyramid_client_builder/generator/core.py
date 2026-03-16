@@ -30,7 +30,9 @@ from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATES_DIR = package_files("pyramid_client_builder.generator").joinpath("templates")
+_TEMPLATES_DIR = package_files("pyramid_client_builder.generator").joinpath(
+    "python_templates"
+)
 
 
 class ClientGenerator:

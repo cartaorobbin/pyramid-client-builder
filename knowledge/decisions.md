@@ -260,3 +260,15 @@ Use this format when adding a new decision:
 **Decision**: Add Go client generation using the same `ClientSpec` pipeline. Restructure the CLI to generate all language/transport variants (python_requests, python_httpx, go) in a single invocation, each into its own subdirectory under `--output`. Remove the `--http-client` option (both Python variants are always generated). Add `--go-module` for customizing the Go module path. Shared logic (version grouping, schema renaming, schema collecting) is extracted from `core.py` into `generator/common.py` for reuse by both `ClientGenerator` and `GoClientGenerator`. Go templates use idiomatic patterns: functional options, `net/http` standard library, struct params for schemas, `json` struct tags, and `(T, error)` returns.
 
 **Consequences**: A single `pclient-build` invocation now produces three client variants. The Go client uses idiomatic Go patterns (functional options, struct params, `net/http`). The shared `common.py` module makes adding new target languages straightforward. The `--http-client` option is removed — this is a breaking CLI change but the project is pre-1.0. Go struct types are generated from Marshmallow `SchemaInfo` with proper JSON tags and Go type mapping.
+
+---
+
+### 2026-03-16 — Flutter/Dart client generation
+
+**Status**: Accepted (extends "Go client generation and multi-variant output")
+
+**Context**: The project generated clients for Python and Go. Users building mobile apps with Flutter/Dart needed a Dart client from the same introspected Pyramid APIs. The existing architecture (common.py, render_tree, template tree convention) was designed to make adding new target languages straightforward.
+
+**Decision**: Add Flutter/Dart client generation using the same `ClientSpec` pipeline. `FlutterClientGenerator` in `flutter_core.py` follows the same pattern as `GoClientGenerator`. Dart naming conventions live in `flutter_naming.py` (reuses `to_method_name()` from the shared naming module, then converts to camelCase). The generated Dart package uses the `http` library (standard Dart HTTP), async methods returning `Future<T>`, and hand-written `fromJson`/`toJson` for model classes (no `json_serializable` or `freezed` dependency). The template tree renderer was enhanced to also render Jinja expressions in file names (not just directory names), enabling `{{package_name}}.dart.j2` for the barrel export. A `--flutter-package` CLI option allows customizing the Dart package name.
+
+**Consequences**: A single `pclient-build` invocation now produces four client variants (python_requests, python_httpx, go, flutter). The Dart client uses idiomatic Dart patterns (async/await, nullable types, factory constructors, named parameters). The `http` package is the only external dependency — no build-runner required. The renderer enhancement (file name rendering) is backward compatible since no existing Go/Python template file names contained Jinja expressions.

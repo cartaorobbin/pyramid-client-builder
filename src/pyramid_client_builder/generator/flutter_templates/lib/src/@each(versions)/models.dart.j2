@@ -1,0 +1,36 @@
+{% if schemas %}
+{% for schema in schemas %}
+
+class {{ schema.name }} {
+{% for field in schema.fields %}
+  final {{ field | dart_field_type }} {{ field.name | dart_field_name }};
+{% endfor %}
+
+  {{ schema.name }}({
+{% for field in schema.fields %}
+{% if field.required %}
+    required this.{{ field.name | dart_field_name }},
+{% else %}
+    this.{{ field.name | dart_field_name }},
+{% endif %}
+{% endfor %}
+  });
+
+  factory {{ schema.name }}.fromJson(Map<String, dynamic> json) {
+    return {{ schema.name }}(
+{% for field in schema.fields %}
+      {{ field.name | dart_field_name }}: {{ field | dart_from_json_value }},
+{% endfor %}
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+{% for field in schema.fields %}
+      '{{ field.name }}': {{ field | dart_to_json_value }},
+{% endfor %}
+    };
+  }
+}
+{% endfor %}
+{% endif %}

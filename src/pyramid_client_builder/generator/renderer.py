@@ -48,7 +48,7 @@ def render_tree(
                 render_tree(entry, out_subdir, context, env)
 
         elif entry.name.endswith(".j2"):
-            output_name = entry.name[:-3]
+            output_name = env.from_string(entry.name[:-3]).render(**context)
             template = env.from_string(entry.read_text())
             content = template.render(**context)
             if content.strip():

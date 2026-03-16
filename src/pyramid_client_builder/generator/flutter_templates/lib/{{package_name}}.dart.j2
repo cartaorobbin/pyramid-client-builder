@@ -1,0 +1,13 @@
+/// Auto-generated Dart HTTP client for the {{ spec.name }} service.
+library {{ package_name }};
+
+export 'src/client.dart';
+{% if schemas %}
+export 'src/models.dart';
+{% endif %}
+{% for version in versions %}
+export 'src/{{ version }}/client.dart';
+{% if versions[version].schemas %}
+export 'src/{{ version }}/models.dart';
+{% endif %}
+{% endfor %}
