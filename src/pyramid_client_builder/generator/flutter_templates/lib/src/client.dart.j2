@@ -1,0 +1,111 @@
+import 'dart:convert';
+
+import 'package:http/http.dart' as http;
+{% if schemas %}
+
+import 'models.dart';
+{% endif %}
+{% for version in versions %}
+import '{{ version }}/client.dart' as {{ version }};
+{% endfor %}
+
+/// HTTP client for the {{ spec.name }} service.
+class {{ class_name }} {
+  final String baseUrl;
+  final http.Client _httpClient;
+  String? authToken;
+{% for version in versions %}
+  late final {{ version }}.{{ version | dart_version_class }}Client {{ version | dart_version_field }};
+{% endfor %}
+
+  {{ class_name }}(
+    this.baseUrl, {
+    http.Client? httpClient,
+    this.authToken,
+  }) : _httpClient = httpClient ?? http.Client() {
+{% for version in versions %}
+    {{ version | dart_version_field }} = {{ version }}.{{ version | dart_version_class }}Client(baseUrl, _httpClient, authToken);
+{% endfor %}
+  }
+
+  Map<String, String> get _headers => {
+        'Content-Type': 'application/json',
+        if (authToken != null) 'Authorization': 'Bearer $authToken',
+      };
+{% for endpoint in endpoints %}
+
+  /// Performs {{ endpoint.method }} {{ endpoint | dart_doc_path }}.
+{% if endpoint.description %}
+  /// {{ endpoint.description }}
+{% endif %}
+  Future<{{ endpoint | dart_return_type }}> {{ endpoint.method_name }}({{ endpoint | dart_method_params }}) async {
+{% if endpoint.path_parameters %}
+    final url = Uri.parse('$baseUrl{{ endpoint | dart_format_url }}');
+{% else %}
+    final url = Uri.parse('$baseUrl{{ endpoint | dart_doc_path }}');
+{% endif %}
+{% if endpoint.querystring_schema %}
+    final queryParams = <String, String>{};
+    if (query != null) {
+{% for field in endpoint.querystring_schema.fields %}
+{% if not field.required %}
+      if (query.{{ field.name | dart_field_name }} != null) {
+        queryParams['{{ field.name }}'] = query.{{ field.name | dart_field_name }}.toString();
+      }
+{% else %}
+      queryParams['{{ field.name }}'] = query.{{ field.name | dart_field_name }}.toString();
+{% endif %}
+{% endfor %}
+    }
+    final requestUrl = url.replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+{% elif endpoint.querystring_parameters %}
+    final queryParams = <String, String>{};
+{% for p in endpoint.querystring_parameters %}
+    if ({{ p.name | dart_param_name }} != null) {
+      queryParams['{{ p.name }}'] = {{ p.name | dart_param_name }}.toString();
+    }
+{% endfor %}
+    final requestUrl = url.replace(queryParameters: queryParams.isNotEmpty ? queryParams : null);
+{% else %}
+    final requestUrl = url;
+{% endif %}
+{% if endpoint.request_schema %}
+    final response = await _httpClient.{{ endpoint.method | lower }}(
+      requestUrl,
+      headers: _headers,
+      body: jsonEncode(req.toJson()),
+    );
+{% elif endpoint.has_body %}
+    final body = <String, dynamic>{
+{% for p in endpoint.body_parameters %}
+{% if not p.required %}
+      if ({{ p.name | dart_param_name }} != null) '{{ p.name }}': {{ p.name | dart_param_name }},
+{% else %}
+      '{{ p.name }}': {{ p.name | dart_param_name }},
+{% endif %}
+{% endfor %}
+    };
+    final response = await _httpClient.{{ endpoint.method | lower }}(
+      requestUrl,
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+{% else %}
+    final response = await _httpClient.{{ endpoint.method | lower }}(
+      requestUrl,
+      headers: _headers,
+    );
+{% endif %}
+    if (response.statusCode >= 400) {
+      throw Exception('HTTP ${response.statusCode}: ${response.body}');
+    }
+{% if endpoint.response_schema %}
+    return {{ endpoint.response_schema.name }}.fromJson(
+      jsonDecode(response.body) as Map<String, dynamic>,
+    );
+{% else %}
+    return jsonDecode(response.body) as Map<String, dynamic>;
+{% endif %}
+  }
+{% endfor %}
+}

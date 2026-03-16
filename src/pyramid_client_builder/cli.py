@@ -12,6 +12,7 @@ import click
 from pyramid.paster import bootstrap, setup_logging
 
 from pyramid_client_builder.generator.core import ClientGenerator
+from pyramid_client_builder.generator.flutter_core import FlutterClientGenerator
 from pyramid_client_builder.generator.go_core import GoClientGenerator
 from pyramid_client_builder.introspection import PyramidIntrospector
 
@@ -55,15 +56,28 @@ logger = logging.getLogger(__name__)
     help="Go module path (e.g. 'github.com/org/payments-client'). "
     "Defaults to '<name>-client'.",
 )
+@click.option(
+    "--flutter-package",
+    default="",
+    help="Dart package name (e.g. 'payments_client'). " "Defaults to '<name>_client'.",
+)
 @click.option("--debug", is_flag=True, help="Enable debug logging.")
 def pclient_build(
-    ini_file, name, output, include, exclude, client_version, go_module, debug
+    ini_file,
+    name,
+    output,
+    include,
+    exclude,
+    client_version,
+    go_module,
+    flutter_package,
+    debug,
 ):
     """Generate HTTP clients from a Pyramid application's routes.
 
     Boots the Pyramid app from INI_FILE, introspects its routes and Cornice
     services, and writes client packages for all supported variants
-    (python_requests, python_httpx, go) into subdirectories of --output.
+    (python_requests, python_httpx, go, flutter) into subdirectories of --output.
 
     Examples:
 
@@ -118,6 +132,14 @@ def pclient_build(
                 "go",
                 GoClientGenerator(spec, version=client_version, go_module=go_module),
             ),
+            (
+                "flutter",
+                FlutterClientGenerator(
+                    spec,
+                    version=client_version,
+                    flutter_package=flutter_package,
+                ),
+            ),
         ]
 
         for variant_name, generator in variants:
@@ -128,7 +150,7 @@ def pclient_build(
         click.echo("", err=True)
         click.echo(f"Generated clients at {output_path}", err=True)
         click.echo(f"  Name:      {name}", err=True)
-        click.echo("  Variants:  python_requests, python_httpx, go", err=True)
+        click.echo("  Variants:  python_requests, python_httpx, go, flutter", err=True)
         click.echo(f"  Endpoints: {len(spec.endpoints)}", err=True)
         click.echo(f"  Settings:  {spec.settings_prefix}.base_url", err=True)
 
