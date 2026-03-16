@@ -26,7 +26,14 @@ def _ensure_wordnet():
 _ROUTE_NAME_SEPS = re.compile(r"[-_]+")
 _DUPLICATE_UNDERSCORES = re.compile(r"_+")
 _PATH_PARAM = re.compile(r"\{[^}]+\}")
+_PATH_REGEX = re.compile(r"\{(\w+)(?::.*?)\}")
 _VERSION_RE = re.compile(r"v(\d+)")
+
+
+def _strip_path_regex(path: str) -> str:
+    """Remove regex constraints from path params: {id:\\d+} -> {id}."""
+    return _PATH_REGEX.sub(r"{\1}", path)
+
 
 _ROLE_SUFFIXES = (
     "RequestSchema",
@@ -133,6 +140,7 @@ def extract_version(path: str) -> str | None:
         "/health"               -> None
         "/"                     -> None
     """
+    path = _strip_path_regex(path)
     for seg in path.strip("/").split("/"):
         if _VERSION_RE.fullmatch(seg):
             return seg
@@ -199,6 +207,7 @@ def _path_segments(path: str) -> list[str]:
     "/" -> []
     "/health" -> ["health"]
     """
+    path = _strip_path_regex(path)
     raw = path.strip("/").split("/")
     segments = []
     for seg in raw:
@@ -281,6 +290,7 @@ _HTTP_PREFIX = {
 
 def _ends_with_param(path: str) -> bool:
     """Check if the path ends with a path parameter like /{id}."""
+    path = _strip_path_regex(path)
     last_segment = path.rstrip("/").rsplit("/", 1)[-1]
     return bool(_PATH_PARAM.fullmatch(last_segment))
 
