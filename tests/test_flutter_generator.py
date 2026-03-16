@@ -140,7 +140,7 @@ class TestFlutterGeneratorWithSimpleSpec:
         gen = FlutterClientGenerator(simple_spec)
         gen.generate(tmp_path)
         source = (tmp_path / "lib" / "src" / "client.dart").read_text()
-        assert "late final v1.V1Client v1" in source
+        assert "late final v1_api.V1Client v1" in source
 
     def test_root_client_has_constructor(self, simple_spec, tmp_path):
         gen = FlutterClientGenerator(simple_spec)
@@ -166,7 +166,7 @@ class TestFlutterGeneratorWithSimpleSpec:
         gen = FlutterClientGenerator(simple_spec)
         gen.generate(tmp_path)
         source = (tmp_path / "lib" / "src" / "client.dart").read_text()
-        assert "import 'v1/client.dart' as v1;" in source
+        assert "import 'v1/client.dart' as v1_api;" in source
 
     def test_v1_client_has_class_declaration(self, simple_spec, tmp_path):
         gen = FlutterClientGenerator(simple_spec)
@@ -263,7 +263,7 @@ class TestFlutterGeneratorWithExampleApp:
         gen = FlutterClientGenerator(example_spec)
         gen.generate(tmp_path)
         source = (tmp_path / "lib" / "src" / "client.dart").read_text()
-        assert "v1.V1Client v1" in source
+        assert "v1_api.V1Client v1" in source
 
 
 # ======================================================================

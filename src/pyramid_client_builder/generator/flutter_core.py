@@ -26,6 +26,7 @@ from pyramid_client_builder.generator.flutter_naming import (
     to_dart_type,
     to_dart_version_class,
     to_dart_version_field,
+    to_dart_version_prefix,
 )
 from pyramid_client_builder.generator.renderer import render_tree
 from pyramid_client_builder.models import ClientSpec, EndpointInfo
@@ -143,6 +144,7 @@ class FlutterClientGenerator:
         env.filters["dart_param_name"] = snake_to_camel
         env.filters["dart_version_field"] = to_dart_version_field
         env.filters["dart_version_class"] = to_dart_version_class
+        env.filters["dart_version_prefix"] = to_dart_version_prefix
         env.filters["dart_json_key"] = _dart_json_key_filter
         env.filters["dart_from_json_value"] = _dart_from_json_value_filter
         env.filters["dart_to_json_value"] = _dart_to_json_value_filter

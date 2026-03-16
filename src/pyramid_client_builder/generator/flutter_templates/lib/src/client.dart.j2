@@ -6,7 +6,7 @@ import 'package:http/http.dart' as http;
 import 'models.dart';
 {% endif %}
 {% for version in versions %}
-import '{{ version }}/client.dart' as {{ version }};
+import '{{ version }}/client.dart' as {{ version | dart_version_prefix }};
 {% endfor %}
 
 /// HTTP client for the {{ spec.name }} service.
@@ -15,7 +15,7 @@ class {{ class_name }} {
   final http.Client _httpClient;
   String? authToken;
 {% for version in versions %}
-  late final {{ version }}.{{ version | dart_version_class }}Client {{ version | dart_version_field }};
+  late final {{ version | dart_version_prefix }}.{{ version | dart_version_class }}Client {{ version | dart_version_field }};
 {% endfor %}
 
   {{ class_name }}(
@@ -24,7 +24,7 @@ class {{ class_name }} {
     this.authToken,
   }) : _httpClient = httpClient ?? http.Client() {
 {% for version in versions %}
-    {{ version | dart_version_field }} = {{ version }}.{{ version | dart_version_class }}Client(baseUrl, _httpClient, authToken);
+    {{ version | dart_version_field }} = {{ version | dart_version_prefix }}.{{ version | dart_version_class }}Client(baseUrl, _httpClient, authToken);
 {% endfor %}
   }
 

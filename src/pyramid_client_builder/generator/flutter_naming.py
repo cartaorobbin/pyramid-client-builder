@@ -26,8 +26,6 @@ DART_TYPE_MAP = {
 }
 
 NULLABLE_ALWAYS = {
-    "List<dynamic>",
-    "Map<String, dynamic>",
     "dynamic",
 }
 
@@ -124,6 +122,18 @@ def to_dart_type(field_type: str, required: bool = True) -> str:
     if not required and dart_type not in NULLABLE_ALWAYS:
         return f"{dart_type}?"
     return dart_type
+
+
+def to_dart_version_prefix(version: str) -> str:
+    """Convert a version string to a Dart import prefix.
+
+    Uses a distinct name to avoid shadowing the field name.
+
+    Examples:
+        "v1" -> "v1_api"
+        "v2" -> "v2_api"
+    """
+    return f"{version.lower()}_api"
 
 
 def to_dart_version_field(version: str) -> str:
