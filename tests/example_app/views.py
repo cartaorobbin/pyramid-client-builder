@@ -11,6 +11,9 @@ from tests.example_app.schemas import (
     ChargeRequestSchema,
     ChargeResponseSchema,
     ChargesQuerySchema,
+    CompanyRelationshipPathSchema,
+    CompanyRelationshipQuerySchema,
+    CompanyRelationshipsResponseSchema,
     InvoiceQuerySchema,
     RefundRequestSchema,
     RequestErrorSchema,
@@ -147,6 +150,29 @@ simulate_service = Service(
 def simulate_financing(request):
     """Simulate a financing plan."""
     return {"monthly_payment": 100.0, "total_interest": 200.0, "total_amount": 1200.0}
+
+
+# --- Cornice service with regex path param (company relationships) ---
+
+company_relationship_service = Service(
+    name="company_relationship",
+    path=r"/api/v1/companies/{uuid_or_tax_id:[^/]+}/relationships",
+    description="Company relationships API",
+    cors_origins=("*",),
+)
+
+
+@company_relationship_service.get(
+    pcm_show="v1",
+    pcm_request=dict(
+        path=CompanyRelationshipPathSchema,
+        querystring=CompanyRelationshipQuerySchema,
+    ),
+    pcm_responses={200: CompanyRelationshipsResponseSchema},
+)
+def list_company_relationships(request):
+    """List relationships for a company."""
+    return {"company_relationships": []}
 
 
 def includeme(config):

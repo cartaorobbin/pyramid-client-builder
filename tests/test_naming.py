@@ -94,6 +94,21 @@ class TestToSchemaName:
                 "querystring",
                 "SplitAccountsQuerySchema",
             ),
+            (
+                r"/api/v1/companies/{uuid_or_tax_id:[^/]+}/relationships",
+                "response",
+                "CompaniesRelationshipsResponseSchema",
+            ),
+            (
+                r"/api/v1/companies/{uuid_or_tax_id:[^/]+}/relationships",
+                "querystring",
+                "CompaniesRelationshipsQuerySchema",
+            ),
+            (
+                r"/api/v1/charges/{id:\d+}",
+                "response",
+                "ChargesResponseSchema",
+            ),
         ],
     )
     def test_schema_name_from_path(self, path, role, expected):
@@ -144,6 +159,7 @@ class TestExtractVersion:
             ("/api/v2/invoices/{id}", "v2"),
             ("/v3/items", "v3"),
             ("/api/v10/resources", "v10"),
+            (r"/api/v1/companies/{uuid_or_tax_id:[^/]+}/relationships", "v1"),
         ],
     )
     def test_extracts_version(self, path, expected):
@@ -222,6 +238,12 @@ class TestToMethodNameDetail:
             ("charge_detail", "DELETE", "/api/v1/charges/{charge_id}", "delete_charge"),
             ("charge_detail", "PUT", "/api/v1/charges/{charge_id}", "update_charge"),
             ("charge_detail", "PATCH", "/api/v1/charges/{charge_id}", "patch_charge"),
+            (
+                "company_relationship",
+                "GET",
+                r"/api/v1/companies/{uuid_or_tax_id:[^/]+}/relationships",
+                "get_companies_relationship",
+            ),
         ],
     )
     def test_detail_endpoints(self, route_name, method, path, expected):

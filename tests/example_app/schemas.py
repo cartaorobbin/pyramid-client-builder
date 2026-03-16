@@ -95,3 +95,19 @@ class SimulateResponseSchema(ma.Schema):
 class RequestErrorSchema(ma.Schema):
     error = ma.fields.String()
     details = ma.fields.Dict()
+
+
+# --- Company relationship schemas (regex path param pattern) ---
+
+
+class CompanyRelationshipsResponseSchema(ma.Schema):
+    total = ma.fields.Integer()
+    uuid_or_tax_id = ma.fields.String()
+
+
+class CompanyRelationshipQuerySchema(ma.Schema):
+    legal_entity_type = ma.fields.String(required=False)
+
+
+class CompanyRelationshipPathSchema(ma.Schema):
+    uuid_or_tax_id = ma.fields.String(required=True)
