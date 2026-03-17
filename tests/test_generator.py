@@ -664,6 +664,80 @@ class TestSchemaRenaming:
 
 
 # ======================================================================
+# Empty schemas (no fields → must emit ``pass``)
+# ======================================================================
+
+
+class TestEmptySchemaGeneratesPass:
+    """A schema with no fields must produce ``pass`` so the class body is valid."""
+
+    def test_empty_schema_contains_pass(self, tmp_path):
+        schema = SchemaInfo(name="EmptyRequestSchema")
+        spec = ClientSpec(
+            name="test",
+            endpoints=[
+                EndpointInfo(
+                    name="things",
+                    path="/api/v1/things",
+                    method="POST",
+                    request_schema=schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class EmptyRequestSchema(ma.Schema):" in source
+        assert "    pass" in source
+
+    def test_empty_schema_is_valid_python(self, tmp_path):
+        schema = SchemaInfo(name="EmptyRequestSchema")
+        spec = ClientSpec(
+            name="test",
+            endpoints=[
+                EndpointInfo(
+                    name="things",
+                    path="/api/v1/things",
+                    method="POST",
+                    request_schema=schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+    def test_mixed_empty_and_populated_schemas(self, tmp_path):
+        empty_schema = SchemaInfo(name="EmptyRequestSchema")
+        populated_schema = SchemaInfo(
+            name="ThingsResponseSchema",
+            fields=[SchemaFieldInfo(name="id", field_type="String")],
+        )
+        spec = ClientSpec(
+            name="test",
+            endpoints=[
+                EndpointInfo(
+                    name="things",
+                    path="/api/v1/things",
+                    method="POST",
+                    request_schema=empty_schema,
+                    response_schema=populated_schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class EmptyRequestSchema(ma.Schema):" in source
+        assert "    pass" in source
+        assert "class ThingsResponseSchema(ma.Schema):" in source
+        assert "id = ma.fields.String()" in source
+        ast.parse(source, filename="schemas.py")
+
+
+# ======================================================================
 # Version directory structure
 # ======================================================================
 
