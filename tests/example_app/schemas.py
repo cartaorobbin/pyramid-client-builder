@@ -97,6 +97,13 @@ class RequestErrorSchema(ma.Schema):
     details = ma.fields.Dict()
 
 
+# --- Empty schema (no fields → must generate ``pass``) ---
+
+
+class DocumentConciliateRequestSchema(ma.Schema):
+    pass
+
+
 # --- Company relationship schemas (regex path param pattern) ---
 
 

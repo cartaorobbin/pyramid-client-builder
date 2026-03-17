@@ -2,6 +2,17 @@
 {% for schema in schemas %}
 
 class {{ schema.name }} {
+{% if not schema.fields %}
+  const {{ schema.name }}();
+
+  factory {{ schema.name }}.fromJson(Map<String, dynamic> json) {
+    return const {{ schema.name }}();
+  }
+
+  Map<String, dynamic> toJson() {
+    return {};
+  }
+{% else %}
 {% for field in schema.fields %}
   final {{ field | dart_field_type }} {{ field.name | dart_field_name }};
 {% endfor %}
@@ -31,6 +42,7 @@ class {{ schema.name }} {
 {% endfor %}
     };
   }
+{% endif %}
 }
 {% endfor %}
 {% endif %}

@@ -14,6 +14,7 @@ from tests.example_app.schemas import (
     CompanyRelationshipPathSchema,
     CompanyRelationshipQuerySchema,
     CompanyRelationshipsResponseSchema,
+    DocumentConciliateRequestSchema,
     InvoiceQuerySchema,
     RefundRequestSchema,
     RequestErrorSchema,
@@ -150,6 +151,24 @@ simulate_service = Service(
 def simulate_financing(request):
     """Simulate a financing plan."""
     return {"monthly_payment": 100.0, "total_interest": 200.0, "total_amount": 1200.0}
+
+
+# --- Cornice service with empty request schema (no fields) ---
+
+document_conciliate_service = Service(
+    name="document_conciliate",
+    path="/api/v1/documents/conciliate",
+    description="Conciliate a document (empty request schema)",
+)
+
+
+@document_conciliate_service.post(
+    schema=DocumentConciliateRequestSchema,
+    validators=(marshmallow_validator,),
+)
+def conciliate_document(request):
+    """Conciliate a document using an empty request schema."""
+    return {"status": "conciliated"}
 
 
 # --- Cornice service with regex path param (company relationships) ---

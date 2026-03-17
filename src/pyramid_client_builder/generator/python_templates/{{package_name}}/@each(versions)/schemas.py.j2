@@ -6,8 +6,12 @@ import marshmallow as ma
 
 
 class {{ schema.name }}(ma.Schema):
+{% if not schema.fields %}
+    pass
+{% else %}
 {% for field in schema.fields %}
     {{ field.name }} = ma.fields.{{ field.field_type }}({{ field | field_kwargs }})
 {% endfor %}
+{% endif %}
 {% endfor %}
 {% endif %}
