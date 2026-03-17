@@ -315,6 +315,13 @@ class TestClientGeneratorWithExampleApp:
         package_dir = gen.generate(tmp_path)
         assert not (package_dir / "schemas.py").exists()
 
+    def test_empty_schema_generates_pass(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class DocumentConciliateRequestSchema(ma.Schema):" in source
+        assert "    pass" in source
+
     def test_composite_schema_generates_inner_schemas(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
