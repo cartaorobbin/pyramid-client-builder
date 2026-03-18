@@ -206,6 +206,7 @@ def _path_segments(path: str) -> list[str]:
     "/api/v1/charges/{charge_id}/cancel" -> ["charges", "cancel"]
     "/" -> []
     "/health" -> ["health"]
+    "static/*subpath" -> ["static"]
     """
     path = _strip_path_regex(path)
     raw = path.strip("/").split("/")
@@ -214,6 +215,8 @@ def _path_segments(path: str) -> list[str]:
         if not seg:
             continue
         if _PATH_PARAM.fullmatch(seg):
+            continue
+        if "*" in seg:
             continue
         if seg.lower() in _API_PREFIXES:
             continue

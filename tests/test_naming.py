@@ -3,6 +3,7 @@
 import pytest
 
 from pyramid_client_builder.generator.naming import (
+    _path_segments,
     extract_version,
     needs_schema_rename,
     to_class_name,
@@ -293,3 +294,23 @@ class TestToMethodNameSingularization:
     def test_singularization_in_detail(self, route_name, method, path, expected_suffix):
         result = to_method_name(route_name, method, path)
         assert result == expected_suffix
+
+
+class TestWildcardPaths:
+    """Wildcard segments (e.g. *subpath) must be skipped in path parsing."""
+
+    @pytest.mark.parametrize(
+        "path, expected",
+        [
+            ("static/*subpath", ["static"]),
+            ("assets/*remainder", ["assets"]),
+            ("/*traverse", []),
+        ],
+    )
+    def test_path_segments_skips_wildcard(self, path, expected):
+        assert _path_segments(path) == expected
+
+    def test_method_name_with_wildcard_produces_valid_identifier(self):
+        result = to_method_name("__static/", "GET", "static/*subpath")
+        assert result == "list_static"
+        assert result.isidentifier()
