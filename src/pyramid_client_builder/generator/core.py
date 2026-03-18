@@ -66,7 +66,9 @@ class ClientGenerator:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        versioned, unversioned = group_by_version(self.spec.endpoints)
+        endpoints = [ep for ep in self.spec.endpoints if "*" not in ep.path]
+
+        versioned, unversioned = group_by_version(endpoints)
 
         versions_ctx: dict[str, dict] = {}
         for version in sorted(versioned.keys()):

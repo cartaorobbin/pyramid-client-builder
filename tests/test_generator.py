@@ -908,3 +908,55 @@ class TestHttpClientOption:
         v1_source = (package_dir / "v1" / "client.py").read_text()
         assert "self.session.get(" in v1_source
         assert "self.session.post(" in v1_source
+
+
+# ======================================================================
+# Static / wildcard views (should be excluded from generated client)
+# ======================================================================
+
+
+class TestStaticViewsExcluded:
+    """Verify that Pyramid static views with wildcard paths don't break generation."""
+
+    @pytest.fixture()
+    def spec_with_static_view(self):
+        return ClientSpec(
+            name="myapp",
+            endpoints=[
+                EndpointInfo(name="home", path="/", method="GET", description="Home"),
+                EndpointInfo(
+                    name="items",
+                    path="/api/v1/items",
+                    method="GET",
+                    description="List items",
+                ),
+                EndpointInfo(
+                    name="__static/",
+                    path="static/*subpath",
+                    method="GET",
+                    description="An instance of this class is a callable ...",
+                ),
+            ],
+        )
+
+    def test_static_view_method_not_in_client(self, spec_with_static_view, tmp_path):
+        gen = ClientGenerator(spec_with_static_view)
+        package_dir = gen.generate(tmp_path)
+        all_source = ""
+        for py_file in package_dir.rglob("*.py"):
+            all_source += py_file.read_text()
+        assert "subpath" not in all_source
+        assert "static" not in all_source.replace("__static", "")
+
+    def test_normal_endpoints_still_generated(self, spec_with_static_view, tmp_path):
+        gen = ClientGenerator(spec_with_static_view)
+        package_dir = gen.generate(tmp_path)
+        root_source = (package_dir / "client.py").read_text()
+        assert "def get_home(self):" in root_source
+
+    def test_generated_files_are_valid_python(self, spec_with_static_view, tmp_path):
+        gen = ClientGenerator(spec_with_static_view)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))

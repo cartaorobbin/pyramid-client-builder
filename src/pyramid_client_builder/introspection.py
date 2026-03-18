@@ -44,6 +44,8 @@ class PyramidIntrospector:
 
         endpoints = _routes_to_endpoints(routes)
 
+        endpoints = _drop_wildcard_routes(endpoints)
+
         endpoints = _drop_non_client_methods(endpoints)
 
         endpoints = _filter_endpoints(endpoints, include_patterns, exclude_patterns)
@@ -74,6 +76,15 @@ def _routes_to_endpoints(routes: list) -> list[EndpointInfo]:
                 )
             )
     return endpoints
+
+
+def _drop_wildcard_routes(endpoints: list[EndpointInfo]) -> list[EndpointInfo]:
+    """Remove routes with wildcard patterns (e.g. static/*subpath).
+
+    Pyramid uses ``*name`` for traversal and static views — these are
+    never API endpoints and would produce invalid Python identifiers.
+    """
+    return [ep for ep in endpoints if "*" not in ep.path]
 
 
 def _drop_non_client_methods(endpoints: list[EndpointInfo]) -> list[EndpointInfo]:
