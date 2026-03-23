@@ -49,7 +49,7 @@ class ClientGenerator:
         self.http_client = http_client
         self.class_name = to_class_name(spec.name)
         self.package_name = to_package_name(spec.name)
-        self.project_name = to_project_name(spec.name)
+        self.project_name = to_project_name(spec.name, variant=http_client)
         self.request_attr = to_request_attr(spec.name)
         self._env = self._create_jinja_env()
 
