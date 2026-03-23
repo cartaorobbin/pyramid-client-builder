@@ -799,7 +799,7 @@ class TestProjectPackaging:
         gen = ClientGenerator(simple_spec)
         package_dir = gen.generate(tmp_path)
         content = (package_dir.parent / "pyproject.toml").read_text()
-        assert 'name = "testapp-client"' in content
+        assert 'name = "testapp-client-requests"' in content
 
     def test_pyproject_contains_default_version(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec)
@@ -950,6 +950,18 @@ class TestHttpClientOption:
         content = (package_dir.parent / "pyproject.toml").read_text()
         assert "requests>=" in content
         assert "httpx" not in content
+
+    def test_httpx_pyproject_has_httpx_project_name(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert 'name = "testapp-client-httpx"' in content
+
+    def test_requests_pyproject_has_requests_project_name(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="requests")
+        package_dir = gen.generate(tmp_path)
+        content = (package_dir.parent / "pyproject.toml").read_text()
+        assert 'name = "testapp-client-requests"' in content
 
     def test_httpx_generated_files_are_valid_python(self, simple_spec, tmp_path):
         gen = ClientGenerator(simple_spec, http_client="httpx")

@@ -56,6 +56,18 @@ class TestToProjectName:
     def test_conversions(self, name, expected):
         assert to_project_name(name) == expected
 
+    @pytest.mark.parametrize(
+        "name, variant, expected",
+        [
+            ("payments", "requests", "payments-client-requests"),
+            ("payments", "httpx", "payments-client-httpx"),
+            ("legal_entity", "httpx", "legal-entity-client-httpx"),
+            ("my-service", "requests", "my-service-client-requests"),
+        ],
+    )
+    def test_with_variant(self, name, variant, expected):
+        assert to_project_name(name, variant=variant) == expected
+
 
 class TestToRequestAttr:
 

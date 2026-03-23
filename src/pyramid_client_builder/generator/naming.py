@@ -74,14 +74,23 @@ def to_package_name(name: str) -> str:
     return f"{name.replace('-', '_')}_client"
 
 
-def to_project_name(name: str) -> str:
+def to_project_name(name: str, variant: str = "") -> str:
     """Convert a client name to a PyPI project name (hyphenated).
 
+    When *variant* is given (e.g. ``"requests"`` or ``"httpx"``), it is
+    appended as a suffix so each generated client gets a unique PyPI name.
+
     Examples:
-        "payments" -> "payments-client"
-        "legal_entity" -> "legal-entity-client"
+        "payments"                      -> "payments-client"
+        "legal_entity"                  -> "legal-entity-client"
+        ("payments", "requests")        -> "payments-client-requests"
+        ("payments", "httpx")           -> "payments-client-httpx"
+        ("legal_entity", "httpx")       -> "legal-entity-client-httpx"
     """
-    return to_package_name(name).replace("_", "-")
+    base = to_package_name(name).replace("_", "-")
+    if variant:
+        return f"{base}-{variant}"
+    return base
 
 
 def to_request_attr(name: str) -> str:

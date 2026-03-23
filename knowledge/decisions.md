@@ -272,3 +272,15 @@ Use this format when adding a new decision:
 **Decision**: Add Flutter/Dart client generation using the same `ClientSpec` pipeline. `FlutterClientGenerator` in `flutter_core.py` follows the same pattern as `GoClientGenerator`. Dart naming conventions live in `flutter_naming.py` (reuses `to_method_name()` from the shared naming module, then converts to camelCase). The generated Dart package uses the `http` library (standard Dart HTTP), async methods returning `Future<T>`, and hand-written `fromJson`/`toJson` for model classes (no `json_serializable` or `freezed` dependency). The template tree renderer was enhanced to also render Jinja expressions in file names (not just directory names), enabling `{{package_name}}.dart.j2` for the barrel export. A `--flutter-package` CLI option allows customizing the Dart package name.
 
 **Consequences**: A single `pclient-build` invocation now produces four client variants (python_requests, python_httpx, go, flutter). The Dart client uses idiomatic Dart patterns (async/await, nullable types, factory constructors, named parameters). The `http` package is the only external dependency — no build-runner required. The renderer enhancement (file name rendering) is backward compatible since no existing Go/Python template file names contained Jinja expressions.
+
+---
+
+### 2026-03-23 — Variant-suffixed PyPI project names for Python clients
+
+**Status**: Accepted (extends "Configurable HTTP client backend")
+
+**Context**: Both generated Python clients (`python_requests` and `python_httpx`) produced a `pyproject.toml` with the same `name` field (e.g., `name = "payments-client"`). This made it impossible to publish both variants to PyPI as separate packages.
+
+**Decision**: Append the HTTP client variant as a suffix to the PyPI project name. `to_project_name()` accepts an optional `variant` parameter: `to_project_name("payments", variant="requests")` returns `"payments-client-requests"`, and `to_project_name("payments", variant="httpx")` returns `"payments-client-httpx"`. `ClientGenerator` passes its `http_client` value as the variant. The importable package name (`payments_client`), class name (`PaymentsClient`), and Pyramid request attribute (`payments_client`) remain unchanged — only the PyPI distribution name differs.
+
+**Consequences**: Both Python client variants can be published to PyPI as separate packages. Consumers install with `pip install payments-client-requests` or `pip install payments-client-httpx` but import with the same `import payments_client`. The two packages cannot coexist in the same environment (same import name), which is intentional — you choose one transport. Calling `to_project_name()` without a variant still returns the base name (`payments-client`) for backward compatibility.
