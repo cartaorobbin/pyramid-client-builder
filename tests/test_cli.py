@@ -244,3 +244,167 @@ class TestPclientBuild:
         assert "python_requests" in result.output
         assert "python_httpx" in result.output
         assert "go" in result.output
+
+    def test_skip_flutter_variant(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--skip",
+                "flutter",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "python_requests").is_dir()
+        assert (tmp_path / "python_httpx").is_dir()
+        assert (tmp_path / "go").is_dir()
+        assert not (tmp_path / "flutter").exists()
+
+    def test_skip_multiple_variants(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--skip",
+                "flutter",
+                "--skip",
+                "go",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "python_requests").is_dir()
+        assert (tmp_path / "python_httpx").is_dir()
+        assert not (tmp_path / "go").exists()
+        assert not (tmp_path / "flutter").exists()
+
+    def test_only_go_variant(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--only",
+                "go",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "go").is_dir()
+        assert not (tmp_path / "python_requests").exists()
+        assert not (tmp_path / "python_httpx").exists()
+        assert not (tmp_path / "flutter").exists()
+
+    def test_only_multiple_variants(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--only",
+                "python_requests",
+                "--only",
+                "go",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert (tmp_path / "python_requests").is_dir()
+        assert (tmp_path / "go").is_dir()
+        assert not (tmp_path / "python_httpx").exists()
+        assert not (tmp_path / "flutter").exists()
+
+    def test_skip_and_only_mutual_exclusion(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--skip",
+                "flutter",
+                "--only",
+                "go",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "mutually exclusive" in result.output
+
+    def test_skip_all_variants_fails(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--skip",
+                "python_requests",
+                "--skip",
+                "python_httpx",
+                "--skip",
+                "go",
+                "--skip",
+                "flutter",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "No variants to generate" in result.output
+
+    def test_invalid_variant_name(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--skip",
+                "java",
+            ],
+        )
+        assert result.exit_code != 0
+
+    def test_summary_reflects_selected_variants(self, tmp_path):
+        runner = CliRunner()
+        result = runner.invoke(
+            pclient_build,
+            [
+                "tests/example_app/example.ini",
+                "--name",
+                "example",
+                "--output",
+                str(tmp_path),
+                "--only",
+                "go",
+                "--go-module",
+                "github.com/org/example-client",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        assert "go" in result.output
+        assert "python_requests" not in result.output
+        assert "python_httpx" not in result.output
+        assert "flutter" not in result.output
