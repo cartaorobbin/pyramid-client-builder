@@ -42,6 +42,18 @@ class EndpointInfo:
 
 
 @dataclass
+class CustomFieldInfo:
+    """A custom Marshmallow field that must be shipped with the generated client.
+
+    Captured during introspection when a schema uses a field type that is
+    not part of the standard ``marshmallow.fields`` module.
+    """
+
+    class_name: str
+    base_type: str
+
+
+@dataclass
 class ClientSpec:
     """Full specification for generating a client package."""
 
@@ -49,6 +61,7 @@ class ClientSpec:
     endpoints: list[EndpointInfo] = field(default_factory=list)
     settings_prefix: str = ""
     schemas: list[SchemaInfo] = field(default_factory=list)
+    custom_fields: list[CustomFieldInfo] = field(default_factory=list)
 
     def __post_init__(self):
         if not self.settings_prefix:

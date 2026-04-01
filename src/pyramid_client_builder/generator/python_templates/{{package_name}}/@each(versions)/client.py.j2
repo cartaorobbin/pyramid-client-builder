@@ -1,6 +1,9 @@
 """{{ spec.name }} {{ version }} HTTP sub-client."""
 
 import logging
+{% if needs_typing_any %}
+from typing import Any
+{% endif %}
 
 {% if http_client == "httpx" %}
 import httpx

@@ -1,0 +1,11 @@
+{% if custom_fields %}
+"""Custom Marshmallow fields for {{ spec.name }}."""
+
+import marshmallow as ma
+{% for cf in custom_fields %}
+
+
+class {{ cf.class_name }}(ma.fields.{{ cf.base_type }}):
+    pass
+{% endfor %}
+{% endif %}

@@ -1126,3 +1126,151 @@ class TestCallableTokenProvider:
         source = (package_dir / "client.py").read_text()
         assert "def _apply_auth(self):" in source
         assert "callable(self._auth_token)" in source
+
+
+# ======================================================================
+# Custom Marshmallow fields
+# ======================================================================
+
+
+class TestCustomFieldGeneration:
+    """Verify that custom Marshmallow fields are shipped with the client."""
+
+    @pytest.fixture()
+    def spec_with_custom_field(self):
+        from pyramid_client_builder.models import CustomFieldInfo
+
+        schema = SchemaInfo(
+            name="PaymentRequestSchema",
+            fields=[
+                SchemaFieldInfo(name="amount", field_type="Integer", required=True),
+                SchemaFieldInfo(
+                    name="currency", field_type="CurrencyField", required=True
+                ),
+            ],
+        )
+        return ClientSpec(
+            name="billing",
+            endpoints=[
+                EndpointInfo(
+                    name="payments",
+                    path="/api/v1/payments",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="amount", location="body", type_hint="int"),
+                        ParameterInfo(
+                            name="currency", location="body", type_hint="str"
+                        ),
+                    ],
+                ),
+            ],
+            custom_fields=[
+                CustomFieldInfo(class_name="CurrencyField", base_type="String"),
+            ],
+        )
+
+    @pytest.fixture()
+    def spec_without_custom_field(self):
+        schema = SchemaInfo(
+            name="ItemRequestSchema",
+            fields=[
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+            ],
+        )
+        return ClientSpec(
+            name="inventory",
+            endpoints=[
+                EndpointInfo(
+                    name="items",
+                    path="/api/v1/items",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="name", location="body", type_hint="str"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_generates_fields_module(self, spec_with_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        assert (package_dir / "fields.py").exists()
+
+    def test_fields_module_has_custom_class(self, spec_with_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "fields.py").read_text()
+        assert "class CurrencyField(ma.fields.String):" in source
+
+    def test_fields_module_imports_marshmallow(self, spec_with_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "fields.py").read_text()
+        assert "import marshmallow as ma" in source
+
+    def test_fields_module_is_valid_python(self, spec_with_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "fields.py").read_text()
+        ast.parse(source, filename="fields.py")
+
+    def test_schemas_imports_custom_field(self, spec_with_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "from billing_client.fields import" in source
+        assert "CurrencyField" in source
+
+    def test_schemas_uses_custom_field_directly(self, spec_with_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "currency = CurrencyField(" in source
+        assert "ma.fields.CurrencyField" not in source
+
+    def test_schemas_still_uses_ma_for_standard_fields(
+        self, spec_with_custom_field, tmp_path
+    ):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "amount = ma.fields.Integer(" in source
+
+    def test_no_fields_module_without_custom_fields(
+        self, spec_without_custom_field, tmp_path
+    ):
+        gen = ClientGenerator(spec_without_custom_field)
+        package_dir = gen.generate(tmp_path)
+        assert not (package_dir / "fields.py").exists()
+
+    def test_no_custom_import_without_custom_fields(
+        self, spec_without_custom_field, tmp_path
+    ):
+        gen = ClientGenerator(spec_without_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "from inventory_client.fields import" not in source
+
+    def test_generated_files_are_valid_python(self, spec_with_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_custom_field)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+    def test_example_app_custom_field_roundtrip(self, example_spec, tmp_path):
+        """End-to-end: example app with CurrencyField generates valid output."""
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        fields_source = (package_dir / "fields.py").read_text()
+        assert "class CurrencyField(ma.fields.String):" in fields_source
+
+        v1_schemas = (package_dir / "v1" / "schemas.py").read_text()
+        assert "from example_client.fields import" in v1_schemas
+        assert "CurrencyField" in v1_schemas
+
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))

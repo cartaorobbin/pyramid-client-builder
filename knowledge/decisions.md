@@ -300,3 +300,15 @@ Use this format when adding a new decision:
 - **Flutter/Dart**: New `authTokenProvider` parameter (`String Function()?`) alongside existing `authToken` (`String?`). `_headers` getter checks provider first, falls back to static token. Sub-clients receive both.
 
 **Consequences**: All generated clients now support dynamic token resolution without breaking existing static-token usage. The Python approach uses duck typing (`callable()`) so a single parameter serves both use cases. Go and Dart use explicit separate fields/parameters for type safety. The Pyramid `ext.py` template is unchanged — it passes a string from settings, which works as before.
+
+---
+
+### 2026-04-01 — Ship custom Marshmallow fields with the generated Python client
+
+**Status**: Accepted
+
+**Context**: When a server-side Marshmallow schema uses a custom field subclass (e.g., `class CurrencyField(ma.fields.String)`), the introspector reports `field_type = "CurrencyField"`. The Python template generates `ma.fields.CurrencyField(...)` which crashes at runtime because `CurrencyField` is not in the standard `marshmallow.fields` namespace. Go and Dart handle this gracefully via their type maps with fallback to generic types (`interface{}` / `dynamic`), but Python has no fallback.
+
+**Decision**: Detect custom fields during introspection and generate minimal replicas in a `fields.py` module shipped with the Python client. The detection walks the live schema classes from Cornice/pycornmarsh args (`view.extra["cornice_args"]`), checks each field against the standard `marshmallow.fields` set, and resolves the base Marshmallow type via MRO. A `CustomFieldInfo` dataclass (class name + base type) is stored on `ClientSpec`. The generator renders a `fields.py.j2` template with stub classes, and `schemas.py.j2` imports custom fields from the local `fields.py` module rather than `ma.fields`. Only affects the Python generator.
+
+**Consequences**: Custom Marshmallow fields no longer crash the generated Python client. The generated `fields.py` contains minimal stubs (`pass` body) that preserve the class name and base type. Custom `_serialize`/`_deserialize` logic is not reproduced — for fields with complex serialization, users can manually edit the generated `fields.py`. This limitation can be addressed in the future by a `marshmallow-introspector` package that captures field source code.

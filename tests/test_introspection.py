@@ -1,9 +1,12 @@
 """Tests for pyramid_client_builder.introspection."""
 
+import marshmallow as ma
 from pyramid_introspector import ParameterInfo, RouteInfo, SchemaInfo, ViewInfo
 
 from pyramid_client_builder.introspection import (
     PyramidIntrospector,
+    _detect_custom_fields,
+    _resolve_base_marshmallow_type,
     _routes_to_endpoints,
 )
 
@@ -134,3 +137,174 @@ class TestPyramidIntrospector:
         spec = introspector.build_client_spec("example")
         names = [s.name for s in spec.schemas]
         assert len(names) == len(set(names))
+
+    def test_detects_custom_fields(self, example_registry):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        names = {cf.class_name for cf in spec.custom_fields}
+        assert "CurrencyField" in names
+
+    def test_custom_field_has_correct_base_type(self, example_registry):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        by_name = {cf.class_name: cf for cf in spec.custom_fields}
+        assert by_name["CurrencyField"].base_type == "String"
+
+    def test_no_standard_fields_in_custom_fields(self, example_registry):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        custom_names = {cf.class_name for cf in spec.custom_fields}
+        standard = {"String", "Integer", "Float", "Boolean", "Dict", "Nested"}
+        assert custom_names.isdisjoint(standard)
+
+
+class TestResolveBaseMarshmallowType:
+
+    def test_direct_subclass(self):
+        class MyField(ma.fields.String):
+            pass
+
+        assert _resolve_base_marshmallow_type(MyField) == "String"
+
+    def test_deep_subclass_resolves_to_nearest_standard(self):
+        class MiddleField(ma.fields.Integer):
+            pass
+
+        class LeafField(MiddleField):
+            pass
+
+        assert _resolve_base_marshmallow_type(LeafField) == "Integer"
+
+    def test_standard_field_resolves_to_itself(self):
+        assert _resolve_base_marshmallow_type(ma.fields.String) == "String"
+
+    def test_bare_field_subclass(self):
+        class RawCustom(ma.fields.Field):
+            pass
+
+        assert _resolve_base_marshmallow_type(RawCustom) == "Field"
+
+
+class TestDetectCustomFields:
+
+    def test_no_custom_fields_when_standard_only(self):
+        class StandardSchema(ma.Schema):
+            name = ma.fields.String()
+            age = ma.fields.Integer()
+
+        routes = [
+            RouteInfo(
+                name="things",
+                pattern="/things",
+                views=[
+                    ViewInfo(
+                        method="POST",
+                        extra={
+                            "cornice_args": {"schema": StandardSchema},
+                        },
+                    ),
+                ],
+            ),
+        ]
+        result = _detect_custom_fields(routes)
+        assert result == []
+
+    def test_detects_custom_field_from_cornice_schema(self):
+        class MoneyField(ma.fields.Integer):
+            pass
+
+        class PaymentSchema(ma.Schema):
+            amount = MoneyField()
+            name = ma.fields.String()
+
+        routes = [
+            RouteInfo(
+                name="payments",
+                pattern="/payments",
+                views=[
+                    ViewInfo(
+                        method="POST",
+                        extra={
+                            "cornice_args": {"schema": PaymentSchema},
+                        },
+                    ),
+                ],
+            ),
+        ]
+        result = _detect_custom_fields(routes)
+        assert len(result) == 1
+        assert result[0].class_name == "MoneyField"
+        assert result[0].base_type == "Integer"
+
+    def test_detects_custom_field_from_pcm_request(self):
+        class TagField(ma.fields.String):
+            pass
+
+        class TagSchema(ma.Schema):
+            tag = TagField()
+
+        routes = [
+            RouteInfo(
+                name="tags",
+                pattern="/tags",
+                views=[
+                    ViewInfo(
+                        method="POST",
+                        extra={
+                            "cornice_args": {
+                                "pcm_request": {"body": TagSchema},
+                            },
+                        },
+                    ),
+                ],
+            ),
+        ]
+        result = _detect_custom_fields(routes)
+        assert len(result) == 1
+        assert result[0].class_name == "TagField"
+
+    def test_deduplicates_custom_fields(self):
+        class SharedField(ma.fields.Float):
+            pass
+
+        class SchemaA(ma.Schema):
+            val = SharedField()
+
+        class SchemaB(ma.Schema):
+            val = SharedField()
+
+        routes = [
+            RouteInfo(
+                name="a",
+                pattern="/a",
+                views=[
+                    ViewInfo(
+                        method="GET",
+                        extra={"cornice_args": {"schema": SchemaA}},
+                    ),
+                ],
+            ),
+            RouteInfo(
+                name="b",
+                pattern="/b",
+                views=[
+                    ViewInfo(
+                        method="GET",
+                        extra={"cornice_args": {"schema": SchemaB}},
+                    ),
+                ],
+            ),
+        ]
+        result = _detect_custom_fields(routes)
+        assert len(result) == 1
+
+    def test_ignores_views_without_cornice_args(self):
+        routes = [
+            RouteInfo(
+                name="plain",
+                pattern="/plain",
+                views=[ViewInfo(method="GET")],
+            ),
+        ]
+        result = _detect_custom_fields(routes)
+        assert result == []

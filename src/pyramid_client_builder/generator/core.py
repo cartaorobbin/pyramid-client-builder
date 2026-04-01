@@ -91,6 +91,13 @@ class ClientGenerator:
             v["schemas"] for v in versions_ctx.values()
         )
 
+        custom_field_names = {cf.class_name for cf in self.spec.custom_fields}
+
+        all_endpoints = list(unversioned)
+        for v in versions_ctx.values():
+            all_endpoints.extend(v["endpoints"])
+        needs_typing_any = _any_param_uses_type(all_endpoints, "Any")
+
         context = {
             "spec": self.spec,
             "class_name": self.class_name,
@@ -103,6 +110,9 @@ class ClientGenerator:
             "versions": versions_ctx,
             "endpoints": unversioned,
             "schemas": unversioned_schemas,
+            "custom_fields": self.spec.custom_fields,
+            "custom_field_names": custom_field_names,
+            "needs_typing_any": needs_typing_any,
         }
 
         render_tree(_TEMPLATES_DIR, output_path, context, self._env)
@@ -221,3 +231,8 @@ def _qs_dict_literal_filter(endpoint: EndpointInfo) -> str:
     """Build a dict literal string from querystring parameters for schema.dump()."""
     pairs = [f'"{p.name}": {p.name}' for p in endpoint.querystring_parameters]
     return ", ".join(pairs)
+
+
+def _any_param_uses_type(endpoints: list[EndpointInfo], type_name: str) -> bool:
+    """Check whether any parameter across endpoints uses a given type hint."""
+    return any(p.type_hint == type_name for ep in endpoints for p in ep.parameters)
