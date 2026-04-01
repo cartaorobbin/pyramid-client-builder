@@ -181,10 +181,11 @@ class TestGoGeneratorWithSimpleSpec:
         gen = GoClientGenerator(simple_spec)
         gen.generate(tmp_path)
         source = (tmp_path / "v1" / "client.go").read_text()
-        assert (
-            "func NewClient(baseURL string, httpClient *http.Client, authToken string)"
-            in source
+        expected = (
+            "func NewClient(baseURL string, httpClient *http.Client,"
+            " authToken string, authTokenFunc func() string)"
         )
+        assert expected in source
 
     def test_custom_go_module(self, simple_spec, tmp_path):
         gen = GoClientGenerator(simple_spec, go_module="github.com/org/testapp-client")
@@ -835,3 +836,61 @@ class TestGoExampleAppSchemas:
         gen = GoClientGenerator(example_spec)
         gen.generate(tmp_path)
         assert not (tmp_path / "types.go").exists()
+
+
+# ======================================================================
+# Callable token provider
+# ======================================================================
+
+
+class TestGoCallableTokenProvider:
+    """Verify generated Go client supports authTokenFunc."""
+
+    def test_root_client_has_auth_token_func_field(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "client.go").read_text()
+        assert "authTokenFunc func() string" in source
+
+    def test_root_client_has_with_auth_token_func_option(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "client.go").read_text()
+        assert "func WithAuthTokenFunc(fn func() string) Option" in source
+
+    def test_root_client_do_checks_func_first(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "client.go").read_text()
+        assert "if c.authTokenFunc != nil" in source
+
+    def test_root_client_do_falls_back_to_static(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "client.go").read_text()
+        assert '} else if c.authToken != ""' in source
+
+    def test_v1_client_has_auth_token_func_field(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "v1" / "client.go").read_text()
+        assert "authTokenFunc func() string" in source
+
+    def test_v1_client_do_checks_func_first(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "v1" / "client.go").read_text()
+        assert "if c.authTokenFunc != nil" in source
+
+    def test_root_passes_func_to_subclient(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "client.go").read_text()
+        assert "c.authTokenFunc)" in source
+
+    def test_with_auth_token_still_works(self, simple_spec, tmp_path):
+        gen = GoClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "client.go").read_text()
+        assert "func WithAuthToken(token string) Option" in source
+        assert "c.authToken = token" in source

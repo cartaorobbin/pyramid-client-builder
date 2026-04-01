@@ -763,11 +763,14 @@ class TestVersionedStructure:
         v1_source = (package_dir / "v1" / "client.py").read_text()
         assert "class V1Client:" in v1_source
 
-    def test_v1_client_constructor_takes_session(self, example_spec, tmp_path):
+    def test_v1_client_constructor_takes_session_and_auth(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
         v1_source = (package_dir / "v1" / "client.py").read_text()
-        assert "def __init__(self, base_url, session, timeout):" in v1_source
+        assert (
+            "def __init__(self, base_url, session, timeout, auth_token=None):"
+            in v1_source
+        )
 
     def test_root_client_creates_session(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
@@ -1053,3 +1056,73 @@ class TestStaticViewsExcluded:
         for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Callable token provider
+# ======================================================================
+
+
+class TestCallableTokenProvider:
+    """Verify generated Python client supports callable auth_token."""
+
+    def test_root_client_has_apply_auth(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "def _apply_auth(self):" in source
+
+    def test_root_client_checks_callable(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "callable(self._auth_token)" in source
+
+    def test_root_client_stores_auth_token(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "self._auth_token = auth_token" in source
+
+    def test_root_client_does_not_set_header_eagerly(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "if auth_token:" not in source
+
+    def test_root_methods_call_apply_auth(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "self._apply_auth()" in source
+
+    def test_v1_client_has_apply_auth(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "def _apply_auth(self):" in v1_source
+
+    def test_v1_client_checks_callable(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "callable(self._auth_token)" in v1_source
+
+    def test_v1_methods_call_apply_auth(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "self._apply_auth()" in v1_source
+
+    def test_root_passes_auth_token_to_subclient(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "self._auth_token)" in source
+
+    def test_httpx_root_client_has_apply_auth(self, simple_spec, tmp_path):
+        gen = ClientGenerator(simple_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "client.py").read_text()
+        assert "def _apply_auth(self):" in source
+        assert "callable(self._auth_token)" in source

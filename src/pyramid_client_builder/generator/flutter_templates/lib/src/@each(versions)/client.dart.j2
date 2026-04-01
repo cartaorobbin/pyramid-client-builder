@@ -11,13 +11,17 @@ class {{ version_class }}Client {
   final String baseUrl;
   final http.Client _httpClient;
   final String? authToken;
+  final String Function()? authTokenProvider;
 
-  {{ version_class }}Client(this.baseUrl, this._httpClient, this.authToken);
+  {{ version_class }}Client(this.baseUrl, this._httpClient, this.authToken, this.authTokenProvider);
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
+  Map<String, String> get _headers {
+    final token = authTokenProvider != null ? authTokenProvider!() : authToken;
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 {% for endpoint in endpoints %}
 
   /// Performs {{ endpoint.method }} {{ endpoint | dart_doc_path }}.

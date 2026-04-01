@@ -15,9 +15,10 @@ import (
 
 // Client is an HTTP client for the {{ spec.name }} service.
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	authToken  string
+	baseURL       string
+	httpClient    *http.Client
+	authToken     string
+	authTokenFunc func() string
 {% for version in versions %}
 	{{ version | go_version_field }} *{{ version }}.Client
 {% endfor %}
@@ -29,6 +30,12 @@ type Option func(*Client)
 // WithAuthToken sets the Bearer token for authentication.
 func WithAuthToken(token string) Option {
 	return func(c *Client) { c.authToken = token }
+}
+
+// WithAuthTokenFunc sets a function that provides the Bearer token dynamically.
+// Takes precedence over WithAuthToken when both are set.
+func WithAuthTokenFunc(fn func() string) Option {
+	return func(c *Client) { c.authTokenFunc = fn }
 }
 
 // WithHTTPClient sets a custom http.Client.
@@ -46,14 +53,18 @@ func NewClient(baseURL string, opts ...Option) *Client {
 		opt(c)
 	}
 {% for version in versions %}
-	c.{{ version | go_version_field }} = {{ version }}.NewClient(c.baseURL, c.httpClient, c.authToken)
+	c.{{ version | go_version_field }} = {{ version }}.NewClient(c.baseURL, c.httpClient, c.authToken, c.authTokenFunc)
 {% endfor %}
 	return c
 }
 {% if endpoints %}
 
 func (c *Client) do(req *http.Request) (*http.Response, error) {
-	if c.authToken != "" {
+	if c.authTokenFunc != nil {
+		if token := c.authTokenFunc(); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+	} else if c.authToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.authToken)
 	}
 	req.Header.Set("Content-Type", "application/json")
