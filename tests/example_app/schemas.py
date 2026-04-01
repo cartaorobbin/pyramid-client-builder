@@ -2,12 +2,20 @@
 
 import marshmallow as ma
 
+# --- Custom field (exercises the custom-field shipping feature) ---
+
+
+class CurrencyField(ma.fields.String):
+    """ISO 4217 currency code field."""
+
+    pass
+
 
 class ChargeRequestSchema(ma.Schema):
     amount = ma.fields.Integer(
         required=True, metadata={"description": "Amount in cents"}
     )
-    currency = ma.fields.String(
+    currency = CurrencyField(
         required=True, metadata={"description": "ISO currency code"}
     )
     description = ma.fields.String(metadata={"description": "Charge description"})

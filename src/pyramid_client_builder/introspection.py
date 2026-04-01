@@ -8,10 +8,11 @@ import fnmatch
 import logging
 from typing import Any
 
+import marshmallow.fields
 from pyramid_introspector import PyramidIntrospector as UpstreamIntrospector
 from pyramid_introspector import SchemaInfo
 
-from pyramid_client_builder.models import ClientSpec, EndpointInfo
+from pyramid_client_builder.models import ClientSpec, CustomFieldInfo, EndpointInfo
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,8 @@ class PyramidIntrospector:
         """
         routes = UpstreamIntrospector(self.registry).introspect()
 
+        custom_fields = _detect_custom_fields(routes)
+
         endpoints = _routes_to_endpoints(routes)
 
         endpoints = _drop_wildcard_routes(endpoints)
@@ -54,7 +57,12 @@ class PyramidIntrospector:
 
         schemas = _collect_schemas(endpoints)
 
-        return ClientSpec(name=name, endpoints=endpoints, schemas=schemas)
+        return ClientSpec(
+            name=name,
+            endpoints=endpoints,
+            schemas=schemas,
+            custom_fields=custom_fields,
+        )
 
 
 def _routes_to_endpoints(routes: list) -> list[EndpointInfo]:
@@ -147,3 +155,100 @@ def _collect_schemas(endpoints: list[EndpointInfo]) -> list[SchemaInfo]:
             _add(schema)
 
     return schemas
+
+
+# ------------------------------------------------------------------
+# Custom Marshmallow field detection
+# ------------------------------------------------------------------
+
+_STANDARD_FIELD_NAMES: set[str] = {
+    name
+    for name, obj in vars(marshmallow.fields).items()
+    if isinstance(obj, type) and issubclass(obj, marshmallow.fields.Field)
+}
+
+
+def _detect_custom_fields(routes: list) -> list[CustomFieldInfo]:
+    """Scan routes for Marshmallow schemas that use non-standard field types.
+
+    Walks through the live schema classes stored in Cornice/pycornmarsh
+    args (``view.extra["cornice_args"]``), instantiates each schema, and
+    checks whether any field is a custom subclass not in the standard
+    ``marshmallow.fields`` module.
+    """
+    schema_classes = _collect_schema_classes(routes)
+    seen: set[str] = set()
+    custom_fields: list[CustomFieldInfo] = []
+
+    for schema_cls in schema_classes:
+        instance = _safe_instantiate(schema_cls)
+        if instance is None:
+            continue
+        for field_obj in instance.fields.values():
+            field_type_name = type(field_obj).__name__
+            if field_type_name in _STANDARD_FIELD_NAMES or field_type_name in seen:
+                continue
+            base_type = _resolve_base_marshmallow_type(type(field_obj))
+            if base_type is not None:
+                seen.add(field_type_name)
+                custom_fields.append(
+                    CustomFieldInfo(class_name=field_type_name, base_type=base_type)
+                )
+
+    return custom_fields
+
+
+def _collect_schema_classes(routes: list) -> list[type]:
+    """Extract actual Marshmallow schema classes from route/view metadata."""
+    classes: list[type] = []
+    seen_ids: set[int] = set()
+
+    def _add(cls: Any) -> None:
+        if cls is None:
+            return
+        if not isinstance(cls, type):
+            cls = type(cls)
+        if id(cls) not in seen_ids:
+            seen_ids.add(id(cls))
+            classes.append(cls)
+
+    for route in routes:
+        for view in route.views:
+            cornice_args = view.extra.get("cornice_args", {})
+
+            schema_cls = cornice_args.get("schema")
+            if schema_cls is not None:
+                _add(schema_cls)
+
+            pcm_request = cornice_args.get("pcm_request")
+            if pcm_request is not None:
+                for location_schema in pcm_request.values():
+                    _add(location_schema)
+
+            pcm_responses = cornice_args.get("pcm_responses")
+            if pcm_responses is not None:
+                for response_schema in pcm_responses.values():
+                    if not isinstance(response_schema, str):
+                        _add(response_schema)
+
+    return classes
+
+
+def _resolve_base_marshmallow_type(field_cls: type) -> str | None:
+    """Walk the MRO to find the first standard Marshmallow field ancestor."""
+    for ancestor in field_cls.__mro__:
+        if ancestor.__name__ in _STANDARD_FIELD_NAMES:
+            if ancestor is marshmallow.fields.Field:
+                return "Field"
+            return ancestor.__name__
+    return None
+
+
+def _safe_instantiate(schema_cls: Any) -> Any | None:
+    """Instantiate a schema class, returning None on failure."""
+    try:
+        instance = schema_cls() if isinstance(schema_cls, type) else schema_cls
+        return instance if hasattr(instance, "fields") else None
+    except Exception:
+        logger.debug("Failed to instantiate schema %s", schema_cls, exc_info=True)
+        return None
