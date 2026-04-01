@@ -9,22 +9,28 @@ import (
 
 // Client is the {{ version }} HTTP sub-client for {{ spec.name }}.
 type Client struct {
-	baseURL    string
-	httpClient *http.Client
-	authToken  string
+	baseURL       string
+	httpClient    *http.Client
+	authToken     string
+	authTokenFunc func() string
 }
 
 // NewClient creates a new {{ version }} Client.
-func NewClient(baseURL string, httpClient *http.Client, authToken string) *Client {
+func NewClient(baseURL string, httpClient *http.Client, authToken string, authTokenFunc func() string) *Client {
 	return &Client{
-		baseURL:    baseURL,
-		httpClient: httpClient,
-		authToken:  authToken,
+		baseURL:       baseURL,
+		httpClient:    httpClient,
+		authToken:     authToken,
+		authTokenFunc: authTokenFunc,
 	}
 }
 
 func (c *Client) do(req *http.Request) (*http.Response, error) {
-	if c.authToken != "" {
+	if c.authTokenFunc != nil {
+		if token := c.authTokenFunc(); token != "" {
+			req.Header.Set("Authorization", "Bearer "+token)
+		}
+	} else if c.authToken != "" {
 		req.Header.Set("Authorization", "Bearer "+c.authToken)
 	}
 	req.Header.Set("Content-Type", "application/json")

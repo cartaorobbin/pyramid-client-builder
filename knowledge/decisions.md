@@ -284,3 +284,19 @@ Use this format when adding a new decision:
 **Decision**: Append the HTTP client variant as a suffix to the PyPI project name. `to_project_name()` accepts an optional `variant` parameter: `to_project_name("payments", variant="requests")` returns `"payments-client-requests"`, and `to_project_name("payments", variant="httpx")` returns `"payments-client-httpx"`. `ClientGenerator` passes its `http_client` value as the variant. The importable package name (`payments_client`), class name (`PaymentsClient`), and Pyramid request attribute (`payments_client`) remain unchanged — only the PyPI distribution name differs.
 
 **Consequences**: Both Python client variants can be published to PyPI as separate packages. Consumers install with `pip install payments-client-requests` or `pip install payments-client-httpx` but import with the same `import payments_client`. The two packages cannot coexist in the same environment (same import name), which is intentional — you choose one transport. Calling `to_project_name()` without a variant still returns the base name (`payments-client`) for backward compatibility.
+
+---
+
+### 2026-04-01 — Callable token provider for dynamic authentication
+
+**Status**: Accepted
+
+**Context**: Generated clients accepted only a static `auth_token` string, set once at construction time. This made it impossible to implement token refresh or validation logic before each request — a common need in production systems with expiring JWTs or service-to-service auth.
+
+**Decision**: Add callable/dynamic token provider support alongside the existing static token, as two independent first-class features. The provider takes precedence over the static token when both are set.
+
+- **Python**: `auth_token` param accepts `str` or `Callable[[], str]`. A `_apply_auth()` method resolves the token via `callable()` check before each request. Version sub-clients receive `auth_token` and have their own `_apply_auth()`.
+- **Go**: New `authTokenFunc func() string` field alongside existing `authToken string`. New `WithAuthTokenFunc(fn func() string)` functional option. `do()` checks `authTokenFunc` first, falls back to `authToken`. Sub-clients receive both fields.
+- **Flutter/Dart**: New `authTokenProvider` parameter (`String Function()?`) alongside existing `authToken` (`String?`). `_headers` getter checks provider first, falls back to static token. Sub-clients receive both.
+
+**Consequences**: All generated clients now support dynamic token resolution without breaking existing static-token usage. The Python approach uses duck typing (`callable()`) so a single parameter serves both use cases. Go and Dart use explicit separate fields/parameters for type safety. The Pyramid `ext.py` template is unchanged — it passes a string from settings, which works as before.

@@ -14,6 +14,7 @@ class {{ class_name }} {
   final String baseUrl;
   final http.Client _httpClient;
   String? authToken;
+  final String Function()? authTokenProvider;
 {% for version in versions %}
   late final {{ version | dart_version_prefix }}.{{ version | dart_version_class }}Client {{ version | dart_version_field }};
 {% endfor %}
@@ -22,16 +23,20 @@ class {{ class_name }} {
     this.baseUrl, {
     http.Client? httpClient,
     this.authToken,
+    this.authTokenProvider,
   }) : _httpClient = httpClient ?? http.Client() {
 {% for version in versions %}
-    {{ version | dart_version_field }} = {{ version | dart_version_prefix }}.{{ version | dart_version_class }}Client(baseUrl, _httpClient, authToken);
+    {{ version | dart_version_field }} = {{ version | dart_version_prefix }}.{{ version | dart_version_class }}Client(baseUrl, _httpClient, authToken, authTokenProvider);
 {% endfor %}
   }
 
-  Map<String, String> get _headers => {
-        'Content-Type': 'application/json',
-        if (authToken != null) 'Authorization': 'Bearer $authToken',
-      };
+  Map<String, String> get _headers {
+    final token = authTokenProvider != null ? authTokenProvider!() : authToken;
+    return {
+      'Content-Type': 'application/json',
+      if (token != null) 'Authorization': 'Bearer $token',
+    };
+  }
 {% for endpoint in endpoints %}
 
   /// Performs {{ endpoint.method }} {{ endpoint | dart_doc_path }}.

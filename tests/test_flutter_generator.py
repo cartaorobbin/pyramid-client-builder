@@ -186,7 +186,8 @@ class TestFlutterGeneratorWithSimpleSpec:
         gen = FlutterClientGenerator(simple_spec)
         gen.generate(tmp_path)
         source = (tmp_path / "lib" / "src" / "v1" / "client.dart").read_text()
-        assert "V1Client(this.baseUrl, this._httpClient, this.authToken)" in source
+        assert "this.authTokenProvider)" in source
+        assert "V1Client(this.baseUrl, this._httpClient" in source
 
     def test_custom_flutter_package(self, simple_spec, tmp_path):
         gen = FlutterClientGenerator(simple_spec, flutter_package="my_custom_client")
@@ -834,3 +835,54 @@ class TestFlutterBarrelExport:
         gen.generate(tmp_path)
         source = (tmp_path / "lib" / "testapp_client.dart").read_text()
         assert "library testapp_client;" in source
+
+
+# ======================================================================
+# Callable token provider
+# ======================================================================
+
+
+class TestFlutterCallableTokenProvider:
+    """Verify generated Dart client supports authTokenProvider."""
+
+    def test_root_client_has_auth_token_provider_field(self, simple_spec, tmp_path):
+        gen = FlutterClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "client.dart").read_text()
+        assert "String Function()? authTokenProvider" in source
+
+    def test_root_client_has_auth_token_provider_param(self, simple_spec, tmp_path):
+        gen = FlutterClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "client.dart").read_text()
+        assert "this.authTokenProvider" in source
+
+    def test_root_client_headers_check_provider_first(self, simple_spec, tmp_path):
+        gen = FlutterClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "client.dart").read_text()
+        assert "authTokenProvider != null ? authTokenProvider!()" in source
+
+    def test_root_client_still_has_static_auth_token(self, simple_spec, tmp_path):
+        gen = FlutterClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "client.dart").read_text()
+        assert "String? authToken" in source
+
+    def test_v1_client_has_auth_token_provider_field(self, simple_spec, tmp_path):
+        gen = FlutterClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "v1" / "client.dart").read_text()
+        assert "String Function()? authTokenProvider" in source
+
+    def test_v1_client_headers_check_provider_first(self, simple_spec, tmp_path):
+        gen = FlutterClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "v1" / "client.dart").read_text()
+        assert "authTokenProvider != null ? authTokenProvider!()" in source
+
+    def test_root_passes_provider_to_subclient(self, simple_spec, tmp_path):
+        gen = FlutterClientGenerator(simple_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "client.dart").read_text()
+        assert "authTokenProvider)" in source

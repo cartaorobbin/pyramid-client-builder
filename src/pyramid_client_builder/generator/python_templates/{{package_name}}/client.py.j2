@@ -28,16 +28,22 @@ class {{ class_name }}:
     def __init__(self, base_url, auth_token=None, timeout=30):
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self._auth_token = auth_token
 {% if http_client == "httpx" %}
         self.session = httpx.Client()
 {% else %}
         self.session = requests.Session()
 {% endif %}
-        if auth_token:
-            self.session.headers["Authorization"] = f"Bearer {auth_token}"
 {% for version in versions %}
-        self.{{ version }} = {{ version | version_class_name }}(self.base_url, self.session, self.timeout)
+        self.{{ version }} = {{ version | version_class_name }}(self.base_url, self.session, self.timeout, self._auth_token)
 {% endfor %}
+
+    def _apply_auth(self):
+        token = self._auth_token() if callable(self._auth_token) else self._auth_token
+        if token:
+            self.session.headers["Authorization"] = f"Bearer {token}"
+        else:
+            self.session.headers.pop("Authorization", None)
 {% for endpoint in endpoints %}
 
     def {{ endpoint.method_name }}(self{{ endpoint | method_signature }}):
@@ -46,6 +52,7 @@ class {{ class_name }}:
         {{ endpoint.description }}
 {% endif %}
         """
+        self._apply_auth()
         url = f"{self.base_url}{{ endpoint | format_url }}"
 {% if endpoint.request_schema %}
         body = {{ endpoint.request_schema.name }}().dump(
