@@ -18,8 +18,14 @@ class {{ schema.name }}(ma.Schema):
     pass
 {% else %}
 {% for field in schema.fields %}
-{% if field.field_type == 'Nested' %}
+{% if field.field_type == 'Nested' and field.many and field.nested_schema %}
+    {{ field.name }} = ma.fields.List({{ field | field_kwargs }})
+{% elif field.field_type == 'Nested' and field.nested_schema %}
+    {{ field.name }} = ma.fields.Nested({{ field | field_kwargs }})
+{% elif field.field_type == 'Nested' %}
     {{ field.name }} = ma.fields.Dict({{ field | field_kwargs }})
+{% elif field.field_type == 'List' and field.nested_schema %}
+    {{ field.name }} = ma.fields.List({{ field | field_kwargs }})
 {% elif field.field_type == 'Enum' %}
     {{ field.name }} = ma.fields.String({{ field | field_kwargs }})
 {% elif field.field_type in custom_field_names %}
