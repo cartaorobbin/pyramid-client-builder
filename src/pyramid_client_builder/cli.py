@@ -18,6 +18,8 @@ from pyramid_client_builder.introspection import PyramidIntrospector
 
 logger = logging.getLogger(__name__)
 
+ALL_VARIANTS = ("python_requests", "python_httpx", "go", "flutter")
+
 
 @click.command()
 @click.version_option(package_name="pyramid-client-builder")
@@ -61,6 +63,22 @@ logger = logging.getLogger(__name__)
     default="",
     help="Dart package name (e.g. 'payments_client'). " "Defaults to '<name>_client'.",
 )
+@click.option(
+    "--only",
+    multiple=True,
+    type=click.Choice(ALL_VARIANTS),
+    help="Generate only the specified variant(s). "
+    "Can be repeated (e.g. --only go --only flutter). "
+    "Mutually exclusive with --skip.",
+)
+@click.option(
+    "--skip",
+    multiple=True,
+    type=click.Choice(ALL_VARIANTS),
+    help="Skip the specified variant(s). "
+    "Can be repeated (e.g. --skip flutter --skip go). "
+    "Mutually exclusive with --only.",
+)
 @click.option("--debug", is_flag=True, help="Enable debug logging.")
 def pclient_build(
     ini_file,
@@ -71,6 +89,8 @@ def pclient_build(
     client_version,
     go_module,
     flutter_package,
+    only,
+    skip,
     debug,
 ):
     """Generate HTTP clients from a Pyramid application's routes.
@@ -79,13 +99,31 @@ def pclient_build(
     services, and writes client packages for all supported variants
     (python_requests, python_httpx, go, flutter) into subdirectories of --output.
 
+    Use --only or --skip to control which variants are generated.
+
     Examples:
 
         pclient-build development.ini --name payments --output ./generated/
 
         pclient-build production.ini --name payments --output ./clients/ \\
             --include "/api/v1/*" --exclude "/api/v1/webhooks/*"
+
+        pclient-build development.ini --name payments --output ./generated/ \\
+            --skip flutter --skip go
+
+        pclient-build development.ini --name payments --output ./generated/ \\
+            --only python_requests
     """
+    if only and skip:
+        raise click.UsageError("--only and --skip are mutually exclusive.")
+
+    selected = set(only) if only else set(ALL_VARIANTS) - set(skip)
+
+    if not selected:
+        raise click.UsageError(
+            "No variants to generate. " "All variants were skipped via --skip."
+        )
+
     log_level = logging.DEBUG if debug else logging.INFO
     logging.basicConfig(
         level=log_level,
@@ -119,7 +157,7 @@ def pclient_build(
 
         output_path = Path(output)
 
-        variants = [
+        all_variants = [
             (
                 "python_requests",
                 ClientGenerator(spec, version=client_version, http_client="requests"),
@@ -142,15 +180,18 @@ def pclient_build(
             ),
         ]
 
+        variants = [(vname, gen) for vname, gen in all_variants if vname in selected]
+
         for variant_name, generator in variants:
             variant_dir = output_path / variant_name
             generator.generate(variant_dir)
             click.echo(f"  Generated {variant_name}/ ", err=True)
 
+        variant_names = ", ".join(vname for vname, _ in variants)
         click.echo("", err=True)
         click.echo(f"Generated clients at {output_path}", err=True)
         click.echo(f"  Name:      {name}", err=True)
-        click.echo("  Variants:  python_requests, python_httpx, go, flutter", err=True)
+        click.echo(f"  Variants:  {variant_names}", err=True)
         click.echo(f"  Endpoints: {len(spec.endpoints)}", err=True)
         click.echo(f"  Settings:  {spec.settings_prefix}.base_url", err=True)
 

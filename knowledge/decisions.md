@@ -328,3 +328,15 @@ Use this format when adding a new decision:
 4. `_resolve_base_marshmallow_type` returns `"String"` instead of `"Field"` when the MRO walk reaches the base `Field` class, so generated stubs provide at least basic string serialization.
 
 **Consequences**: Generated Python clients import without errors. `Nested` fields lose their nested-schema validation (degraded to `Dict`), and `List` fields assume string inner type. Both are safe defaults given the metadata available. Custom fields extending bare `Field` now serialize as strings, which matches the common case (CNPJ, CPF, phone validators). When `pyramid-introspector` gains inner/nested metadata, the generator can emit precise types.
+
+---
+
+### 2026-03-28 — Variant selection via --skip and --only
+
+**Status**: Accepted (extends "Go client generation and multi-variant output")
+
+**Context**: The CLI always generated all four client variants (python_requests, python_httpx, go, flutter) with no way to opt out. Some projects have no use for certain variants — for example, a backend-only service has no need for a Flutter client, or a mobile team only needs the Dart output. Generating unnecessary variants wastes time and clutters the output directory.
+
+**Decision**: Add two mutually exclusive, repeatable CLI options: `--skip <variant>` to exclude specific variants and `--only <variant>` to generate only the specified variants. Valid variant names match the output directory names: `python_requests`, `python_httpx`, `go`, `flutter`. When neither option is given, all variants are generated (backward compatible). Using both `--skip` and `--only` in the same invocation is a `UsageError`. Skipping all variants is also an error. Invalid variant names are rejected by Click's `Choice` type with a helpful error message. The `ALL_VARIANTS` tuple is defined as a module-level constant for reuse.
+
+**Consequences**: Users can tailor output to their needs without post-generation cleanup. The default behavior is unchanged — existing scripts and workflows are unaffected. The two options cover both mental models: "give me everything except X" (`--skip`) and "give me only X" (`--only`). The mutual exclusion constraint keeps semantics unambiguous.
