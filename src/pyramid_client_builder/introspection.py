@@ -235,11 +235,16 @@ def _collect_schema_classes(routes: list) -> list[type]:
 
 
 def _resolve_base_marshmallow_type(field_cls: type) -> str | None:
-    """Walk the MRO to find the first standard Marshmallow field ancestor."""
+    """Walk the MRO to find the first standard Marshmallow field ancestor.
+
+    When the walk reaches the base ``Field`` class without finding a more
+    specific ancestor, ``"String"`` is returned instead of ``"Field"`` so
+    the generated stub provides at least basic string serialization.
+    """
     for ancestor in field_cls.__mro__:
         if ancestor.__name__ in _STANDARD_FIELD_NAMES:
             if ancestor is marshmallow.fields.Field:
-                return "Field"
+                return "String"
             return ancestor.__name__
     return None
 

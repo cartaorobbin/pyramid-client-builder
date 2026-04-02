@@ -18,7 +18,9 @@ class {{ schema.name }}(ma.Schema):
     pass
 {% else %}
 {% for field in schema.fields %}
-{% if field.field_type in custom_field_names %}
+{% if field.field_type == 'Nested' %}
+    {{ field.name }} = ma.fields.Dict({{ field | field_kwargs }})
+{% elif field.field_type in custom_field_names %}
     {{ field.name }} = {{ field.field_type }}({{ field | field_kwargs }})
 {% else %}
     {{ field.name }} = ma.fields.{{ field.field_type }}({{ field | field_kwargs }})

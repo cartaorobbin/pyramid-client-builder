@@ -178,11 +178,11 @@ class TestResolveBaseMarshmallowType:
     def test_standard_field_resolves_to_itself(self):
         assert _resolve_base_marshmallow_type(ma.fields.String) == "String"
 
-    def test_bare_field_subclass(self):
+    def test_bare_field_subclass_defaults_to_string(self):
         class RawCustom(ma.fields.Field):
             pass
 
-        assert _resolve_base_marshmallow_type(RawCustom) == "Field"
+        assert _resolve_base_marshmallow_type(RawCustom) == "String"
 
 
 class TestDetectCustomFields:

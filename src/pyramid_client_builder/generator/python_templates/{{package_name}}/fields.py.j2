@@ -6,6 +6,14 @@ import marshmallow as ma
 
 
 class {{ cf.class_name }}(ma.fields.{{ cf.base_type }}):
+{% if cf.base_type == 'List' %}
+    def __init__(self, inner=None, **kwargs):
+        super().__init__(inner or ma.fields.String(), **kwargs)
+{% elif cf.base_type == 'Nested' %}
+    def __init__(self, nested=None, **kwargs):
+        super().__init__(nested or ma.Schema, **kwargs)
+{% else %}
     pass
+{% endif %}
 {% endfor %}
 {% endif %}

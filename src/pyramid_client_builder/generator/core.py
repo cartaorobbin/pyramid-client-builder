@@ -212,8 +212,14 @@ def _format_doc_path_filter(endpoint: EndpointInfo) -> str:
 
 
 def _field_kwargs_filter(field_info: SchemaFieldInfo) -> str:
-    """Render Marshmallow field constructor keyword arguments."""
+    """Render Marshmallow field constructor arguments.
+
+    For ``List`` fields, prepends ``ma.fields.String()`` as the required
+    inner type since ``SchemaFieldInfo`` does not carry inner-field metadata.
+    """
     parts: list[str] = []
+    if field_info.field_type == "List":
+        parts.append("ma.fields.String()")
     if field_info.required:
         parts.append("required=True")
     if field_info.metadata:
