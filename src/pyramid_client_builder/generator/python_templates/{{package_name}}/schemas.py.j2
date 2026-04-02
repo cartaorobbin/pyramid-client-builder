@@ -20,6 +20,8 @@ class {{ schema.name }}(ma.Schema):
 {% for field in schema.fields %}
 {% if field.field_type == 'Nested' %}
     {{ field.name }} = ma.fields.Dict({{ field | field_kwargs }})
+{% elif field.field_type == 'Enum' %}
+    {{ field.name }} = ma.fields.String({{ field | field_kwargs }})
 {% elif field.field_type in custom_field_names %}
     {{ field.name }} = {{ field.field_type }}({{ field | field_kwargs }})
 {% else %}
