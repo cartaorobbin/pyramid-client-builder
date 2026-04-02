@@ -340,3 +340,15 @@ Use this format when adding a new decision:
 **Decision**: Add two mutually exclusive, repeatable CLI options: `--skip <variant>` to exclude specific variants and `--only <variant>` to generate only the specified variants. Valid variant names match the output directory names: `python_requests`, `python_httpx`, `go`, `flutter`. When neither option is given, all variants are generated (backward compatible). Using both `--skip` and `--only` in the same invocation is a `UsageError`. Skipping all variants is also an error. Invalid variant names are rejected by Click's `Choice` type with a helpful error message. The `ALL_VARIANTS` tuple is defined as a module-level constant for reuse.
 
 **Consequences**: Users can tailor output to their needs without post-generation cleanup. The default behavior is unchanged — existing scripts and workflows are unaffected. The two options cover both mental models: "give me everything except X" (`--skip`) and "give me only X" (`--only`). The mutual exclusion constraint keeps semantics unambiguous.
+
+---
+
+### 2026-04-02 — Collection endpoint paginated response deserialization
+
+**Status**: Accepted
+
+**Context**: When a collection endpoint (e.g., `GET /api/v1/persons`) declares a `response_schema` describing a single item (e.g., `PersonSchema`), the API returns a paginated envelope `{"results": [...]}`. The generated client was deserializing the entire envelope as the item schema, causing marshmallow validation errors in Python and silent data loss in Go/Flutter.
+
+**Decision**: Add collection endpoint detection and fix response deserialization across all four generated client variants. A new `is_collection_endpoint()` function in `naming.py` reuses the existing `to_method_name()` logic — if the method name starts with `list_`, the endpoint is a collection. Each generator sets `endpoint.is_collection` during annotation. Templates branch on this flag: Python uses `Schema(many=True).load(response.json()["results"])`, Go decodes into an anonymous envelope struct with a `Results []T` field, and Flutter maps over `data['results']` with `fromJson`. Return types change accordingly: Go returns `[]T` instead of `*T`, Flutter returns `List<T>` instead of `T`. The `"results"` key is hardcoded as the pagination envelope key, matching the common Pyramid/Cornice convention.
+
+**Consequences**: Generated clients now correctly deserialize paginated list responses. Detail endpoints are unaffected. The `"results"` key is hardcoded — servers using a different envelope key (e.g., `"data"`, `"items"`) would need manual adjustment in the generated code or a future CLI option for configurability. The collection detection is consistent with method naming: if the method is named `list_*`, it deserializes as a list.
