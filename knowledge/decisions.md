@@ -312,3 +312,19 @@ Use this format when adding a new decision:
 **Decision**: Detect custom fields during introspection and generate minimal replicas in a `fields.py` module shipped with the Python client. The detection walks the live schema classes from Cornice/pycornmarsh args (`view.extra["cornice_args"]`), checks each field against the standard `marshmallow.fields` set, and resolves the base Marshmallow type via MRO. A `CustomFieldInfo` dataclass (class name + base type) is stored on `ClientSpec`. The generator renders a `fields.py.j2` template with stub classes, and `schemas.py.j2` imports custom fields from the local `fields.py` module rather than `ma.fields`. Only affects the Python generator.
 
 **Consequences**: Custom Marshmallow fields no longer crash the generated Python client. The generated `fields.py` contains minimal stubs (`pass` body) that preserve the class name and base type. Custom `_serialize`/`_deserialize` logic is not reproduced — for fields with complex serialization, users can manually edit the generated `fields.py`. This limitation can be addressed in the future by a `marshmallow-introspector` package that captures field source code.
+
+---
+
+### 2026-04-01 — Fix marshmallow field generation bugs (List, Nested, bare Field)
+
+**Status**: Accepted
+
+**Context**: Generated Python clients fail to import when schemas contain `List` or `Nested` marshmallow fields. `List.__init__()` requires a positional `cls_or_instance` argument and `Nested.__init__()` requires a positional `nested` schema argument. The `SchemaFieldInfo` dataclass (from `pyramid-introspector`) only carries `name`, `field_type`, `required`, and `metadata` — no inner-field or nested-schema references. Additionally, custom fields whose MRO only reaches `ma.fields.Field` generate empty stubs with no serialization logic.
+
+**Decision**: Four fixes:
+1. `fields.py.j2` generates conditional `__init__` overrides for custom fields with `List` or `Nested` base types, providing safe defaults (`ma.fields.String()` and `ma.Schema` respectively).
+2. `_field_kwargs_filter` in `core.py` prepends `ma.fields.String()` as the default inner type for `List` schema fields.
+3. Both `schemas.py.j2` templates fall back to `ma.fields.Dict` for `Nested` schema fields, since the nested schema reference is unavailable.
+4. `_resolve_base_marshmallow_type` returns `"String"` instead of `"Field"` when the MRO walk reaches the base `Field` class, so generated stubs provide at least basic string serialization.
+
+**Consequences**: Generated Python clients import without errors. `Nested` fields lose their nested-schema validation (degraded to `Dict`), and `List` fields assume string inner type. Both are safe defaults given the metadata available. Custom fields extending bare `Field` now serialize as strings, which matches the common case (CNPJ, CPF, phone validators). When `pyramid-introspector` gains inner/nested metadata, the generator can emit precise types.
