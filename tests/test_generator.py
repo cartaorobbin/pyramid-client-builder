@@ -1274,3 +1274,213 @@ class TestCustomFieldGeneration:
         for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Custom field base-type edge cases (List, Nested, bare Field)
+# ======================================================================
+
+
+class TestCustomFieldListBaseType:
+    """Custom List fields get an __init__ with a default inner type."""
+
+    @pytest.fixture()
+    def spec_with_list_custom_field(self):
+        from pyramid_client_builder.models import CustomFieldInfo
+
+        schema = SchemaInfo(
+            name="FilterRequestSchema",
+            fields=[
+                SchemaFieldInfo(name="tags", field_type="TagListField", required=True),
+            ],
+        )
+        return ClientSpec(
+            name="search",
+            endpoints=[
+                EndpointInfo(
+                    name="search",
+                    path="/api/v1/search",
+                    method="GET",
+                    querystring_schema=schema,
+                    parameters=[
+                        ParameterInfo(
+                            name="tags", location="querystring", type_hint="list"
+                        ),
+                    ],
+                ),
+            ],
+            custom_fields=[
+                CustomFieldInfo(class_name="TagListField", base_type="List"),
+            ],
+        )
+
+    def test_list_custom_field_has_init(self, spec_with_list_custom_field, tmp_path):
+        gen = ClientGenerator(spec_with_list_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "fields.py").read_text()
+        assert "def __init__" in source
+        assert "ma.fields.String()" in source
+
+    def test_list_custom_field_is_valid_python(
+        self, spec_with_list_custom_field, tmp_path
+    ):
+        gen = ClientGenerator(spec_with_list_custom_field)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+class TestCustomFieldNestedBaseType:
+    """Custom Nested fields get an __init__ with a default schema."""
+
+    @pytest.fixture()
+    def spec_with_nested_custom_field(self):
+        from pyramid_client_builder.models import CustomFieldInfo
+
+        schema = SchemaInfo(
+            name="OrderRequestSchema",
+            fields=[
+                SchemaFieldInfo(
+                    name="details", field_type="DetailField", required=True
+                ),
+            ],
+        )
+        return ClientSpec(
+            name="orders",
+            endpoints=[
+                EndpointInfo(
+                    name="orders",
+                    path="/api/v1/orders",
+                    method="POST",
+                    request_schema=schema,
+                    parameters=[
+                        ParameterInfo(
+                            name="details", location="body", type_hint="dict"
+                        ),
+                    ],
+                ),
+            ],
+            custom_fields=[
+                CustomFieldInfo(class_name="DetailField", base_type="Nested"),
+            ],
+        )
+
+    def test_nested_custom_field_has_init(
+        self, spec_with_nested_custom_field, tmp_path
+    ):
+        gen = ClientGenerator(spec_with_nested_custom_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "fields.py").read_text()
+        assert "def __init__" in source
+        assert "ma.Schema" in source
+
+    def test_nested_custom_field_is_valid_python(
+        self, spec_with_nested_custom_field, tmp_path
+    ):
+        gen = ClientGenerator(spec_with_nested_custom_field)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Schema fields: Nested -> Dict fallback, List with inner type
+# ======================================================================
+
+
+class TestNestedFieldFallback:
+    """Nested schema fields without a schema reference fall back to Dict."""
+
+    @pytest.fixture()
+    def spec_with_nested_schema_field(self):
+        schema = SchemaInfo(
+            name="EntityResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+                SchemaFieldInfo(
+                    name="phones",
+                    field_type="Nested",
+                    metadata={"description": "Phone list"},
+                ),
+                SchemaFieldInfo(
+                    name="documents",
+                    field_type="Nested",
+                    metadata={"description": "Document list"},
+                ),
+            ],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="entities",
+                    path="/api/v1/entities",
+                    method="GET",
+                    response_schema=schema,
+                ),
+            ],
+        )
+
+    def test_nested_fields_become_dict(self, spec_with_nested_schema_field, tmp_path):
+        gen = ClientGenerator(spec_with_nested_schema_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "ma.fields.Dict(" in source
+        assert "ma.fields.Nested(" not in source
+
+    def test_nested_fallback_is_valid_python(
+        self, spec_with_nested_schema_field, tmp_path
+    ):
+        gen = ClientGenerator(spec_with_nested_schema_field)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+class TestListFieldInnerType:
+    """List schema fields get a default inner type (String)."""
+
+    @pytest.fixture()
+    def spec_with_list_schema_field(self):
+        schema = SchemaInfo(
+            name="TagsQuerySchema",
+            fields=[
+                SchemaFieldInfo(
+                    name="tags",
+                    field_type="List",
+                    metadata={"description": "Filter tags"},
+                ),
+            ],
+        )
+        return ClientSpec(
+            name="tagging",
+            endpoints=[
+                EndpointInfo(
+                    name="tags",
+                    path="/api/v1/tags",
+                    method="GET",
+                    querystring_schema=schema,
+                    parameters=[
+                        ParameterInfo(
+                            name="tags", location="querystring", type_hint="list"
+                        ),
+                    ],
+                ),
+            ],
+        )
+
+    def test_list_field_has_inner_type(self, spec_with_list_schema_field, tmp_path):
+        gen = ClientGenerator(spec_with_list_schema_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "ma.fields.List(ma.fields.String()" in source
+
+    def test_list_field_is_valid_python(self, spec_with_list_schema_field, tmp_path):
+        gen = ClientGenerator(spec_with_list_schema_field)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
