@@ -312,6 +312,17 @@ def _has_path_params(path: str) -> bool:
     return bool(_PATH_PARAM.search(path))
 
 
+def is_collection_endpoint(route_name: str, method: str, path: str) -> bool:
+    """Check if an endpoint is a collection (list) endpoint.
+
+    Returns True when ``to_method_name`` would produce a ``list_*`` name,
+    meaning the endpoint is a GET on a collection path with no path
+    parameters.  Used by generators to switch between single-object and
+    paginated-list response deserialization.
+    """
+    return to_method_name(route_name, method, path).startswith("list_")
+
+
 def _clean_route_name(route_name: str) -> str:
     """Clean a route name into a valid Python identifier fragment."""
     clean = _ROUTE_NAME_SEPS.sub("_", route_name).strip("_")

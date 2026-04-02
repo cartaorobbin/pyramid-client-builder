@@ -595,10 +595,13 @@ class TestFlutterMethodSignatures:
             name="billing",
             endpoints=[
                 EndpointInfo(
-                    name="charges",
-                    path="/api/v1/charges",
+                    name="charge_detail",
+                    path="/api/v1/charges/{charge_id}",
                     method="GET",
                     response_schema=response_schema,
+                    parameters=[
+                        ParameterInfo(name="charge_id", location="path"),
+                    ],
                 ),
             ],
         )
@@ -612,6 +615,64 @@ class TestFlutterMethodSignatures:
         gen.generate(tmp_path)
         source = (tmp_path / "lib" / "src" / "v1" / "client.dart").read_text()
         assert "Future<Map<String, dynamic>>" in source
+
+
+# ======================================================================
+# Collection response deserialization (paginated list endpoints)
+# ======================================================================
+
+
+class TestFlutterCollectionResponseDeserialization:
+    """Verify list endpoints use List<T> return types and extract 'results'."""
+
+    @pytest.fixture()
+    def collection_spec(self):
+        schema = SchemaInfo(
+            name="PersonSchema",
+            fields=[
+                SchemaFieldInfo(name="id", field_type="String", required=True),
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+            ],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="persons",
+                    path="/api/v1/persons",
+                    method="GET",
+                    response_schema=schema,
+                ),
+                EndpointInfo(
+                    name="person_detail",
+                    path="/api/v1/persons/{person_id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="person_id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_list_endpoint_returns_list_type(self, collection_spec, tmp_path):
+        gen = FlutterClientGenerator(collection_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "v1" / "client.dart").read_text()
+        assert "Future<List<PersonsResponseSchema>>" in source
+
+    def test_list_endpoint_extracts_results(self, collection_spec, tmp_path):
+        gen = FlutterClientGenerator(collection_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "v1" / "client.dart").read_text()
+        assert "data['results']" in source
+        assert "PersonsResponseSchema.fromJson" in source
+
+    def test_detail_endpoint_returns_single_model(self, collection_spec, tmp_path):
+        gen = FlutterClientGenerator(collection_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "lib" / "src" / "v1" / "client.dart").read_text()
+        assert "Future<PersonsResponseSchema>" in source
 
 
 # ======================================================================

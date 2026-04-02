@@ -86,7 +86,9 @@ class {{ class_name }}:
             timeout=self.timeout,
         )
         response.raise_for_status()
-{% if endpoint.response_schema %}
+{% if endpoint.response_schema and endpoint.is_collection %}
+        return {{ endpoint.response_schema.name }}(many=True).load(response.json()["results"])
+{% elif endpoint.response_schema %}
         return {{ endpoint.response_schema.name }}().load(response.json())
 {% else %}
         return response.json()

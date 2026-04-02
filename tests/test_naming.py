@@ -5,6 +5,7 @@ import pytest
 from pyramid_client_builder.generator.naming import (
     _path_segments,
     extract_version,
+    is_collection_endpoint,
     needs_schema_rename,
     to_class_name,
     to_method_name,
@@ -306,6 +307,35 @@ class TestToMethodNameSingularization:
     def test_singularization_in_detail(self, route_name, method, path, expected_suffix):
         result = to_method_name(route_name, method, path)
         assert result == expected_suffix
+
+
+class TestIsCollectionEndpoint:
+    """Verify collection endpoint detection for paginated response handling."""
+
+    @pytest.mark.parametrize(
+        "route_name, method, path",
+        [
+            ("charges", "GET", "/api/v1/charges"),
+            ("invoices", "GET", "/api/v1/invoices"),
+            ("items", "GET", "/api/v1/items"),
+        ],
+    )
+    def test_collection_get_is_collection(self, route_name, method, path):
+        assert is_collection_endpoint(route_name, method, path) is True
+
+    @pytest.mark.parametrize(
+        "route_name, method, path",
+        [
+            ("charge_detail", "GET", "/api/v1/charges/{charge_id}"),
+            ("charges", "POST", "/api/v1/charges"),
+            ("charges", "DELETE", "/api/v1/charges/{charge_id}"),
+            ("charges", "PUT", "/api/v1/charges/{charge_id}"),
+            ("home", "GET", "/"),
+            ("health", "GET", "/health"),
+        ],
+    )
+    def test_non_collection_is_not_collection(self, route_name, method, path):
+        assert is_collection_endpoint(route_name, method, path) is False
 
 
 class TestWildcardPaths:

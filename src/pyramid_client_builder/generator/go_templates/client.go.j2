@@ -137,7 +137,15 @@ func (c *Client) {{ endpoint.method_name }}({{ endpoint | go_method_params }}) (
 		errBody, _ := io.ReadAll(resp.Body)
 		return {{ endpoint | go_zero_return }}, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(errBody))
 	}
-{% if endpoint.response_schema %}
+{% if endpoint.response_schema and endpoint.is_collection %}
+	var envelope struct {
+		Results []{{ endpoint.response_schema.name }} `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+		return nil, fmt.Errorf("decode response: %w", err)
+	}
+	return envelope.Results, nil
+{% elif endpoint.response_schema %}
 	var result {{ endpoint.response_schema.name }}
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
