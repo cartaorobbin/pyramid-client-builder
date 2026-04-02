@@ -19,6 +19,7 @@ from pyramid_client_builder.generator.common import (
     rename_schemas,
 )
 from pyramid_client_builder.generator.naming import (
+    is_collection_endpoint,
     to_class_name,
     to_method_name,
     to_package_name,
@@ -133,7 +134,11 @@ class ClientGenerator:
     # ------------------------------------------------------------------
 
     def _annotate_endpoints(self, endpoints: list[EndpointInfo]) -> None:
-        """Add computed ``method_name`` attribute for template rendering."""
+        """Add computed attributes for template rendering.
+
+        Sets ``method_name`` (Python snake_case) and ``is_collection``
+        (True for list endpoints that return paginated responses).
+        """
         seen_names: dict[str, int] = {}
 
         for endpoint in endpoints:
@@ -143,6 +148,9 @@ class ClientGenerator:
 
             method_name = base_name if count == 0 else f"{base_name}_{count}"
             endpoint.method_name = method_name  # type: ignore[attr-defined]
+            endpoint.is_collection = is_collection_endpoint(  # type: ignore[attr-defined]
+                endpoint.name, endpoint.method, endpoint.path
+            )
 
     def _create_jinja_env(self) -> Environment:
         env = Environment(

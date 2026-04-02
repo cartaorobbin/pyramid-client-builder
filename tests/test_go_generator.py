@@ -595,10 +595,13 @@ class TestGoMethodSignatures:
             name="billing",
             endpoints=[
                 EndpointInfo(
-                    name="charges",
-                    path="/api/v1/charges",
+                    name="charge_detail",
+                    path="/api/v1/charges/{charge_id}",
                     method="GET",
                     response_schema=response_schema,
+                    parameters=[
+                        ParameterInfo(name="charge_id", location="path"),
+                    ],
                 ),
             ],
         )
@@ -612,6 +615,64 @@ class TestGoMethodSignatures:
         gen.generate(tmp_path)
         source = (tmp_path / "v1" / "client.go").read_text()
         assert "(map[string]interface{}, error)" in source
+
+
+# ======================================================================
+# Collection response deserialization (paginated list endpoints)
+# ======================================================================
+
+
+class TestGoCollectionResponseDeserialization:
+    """Verify list endpoints use slice return types and decode from 'results'."""
+
+    @pytest.fixture()
+    def collection_spec(self):
+        schema = SchemaInfo(
+            name="PersonSchema",
+            fields=[
+                SchemaFieldInfo(name="id", field_type="String", required=True),
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+            ],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="persons",
+                    path="/api/v1/persons",
+                    method="GET",
+                    response_schema=schema,
+                ),
+                EndpointInfo(
+                    name="person_detail",
+                    path="/api/v1/persons/{person_id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="person_id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_list_endpoint_returns_slice(self, collection_spec, tmp_path):
+        gen = GoClientGenerator(collection_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "v1" / "client.go").read_text()
+        assert "([]PersonsResponseSchema, error)" in source
+
+    def test_list_endpoint_decodes_envelope(self, collection_spec, tmp_path):
+        gen = GoClientGenerator(collection_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "v1" / "client.go").read_text()
+        assert '`json:"results"`' in source
+        assert "envelope.Results" in source
+
+    def test_detail_endpoint_returns_pointer(self, collection_spec, tmp_path):
+        gen = GoClientGenerator(collection_spec)
+        gen.generate(tmp_path)
+        source = (tmp_path / "v1" / "client.go").read_text()
+        assert "(*PersonsResponseSchema, error)" in source
 
 
 # ======================================================================

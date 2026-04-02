@@ -413,6 +413,92 @@ class TestPycornmarshGeneration:
 
 
 # ======================================================================
+# Collection response deserialization (paginated list endpoints)
+# ======================================================================
+
+
+class TestCollectionResponseDeserialization:
+    """Verify list endpoints use many=True and extract 'results' from response."""
+
+    @pytest.fixture()
+    def collection_spec(self):
+        schema = SchemaInfo(
+            name="PersonSchema",
+            fields=[
+                SchemaFieldInfo(name="id", field_type="String", required=True),
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+            ],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="persons",
+                    path="/api/v1/persons",
+                    method="GET",
+                    response_schema=schema,
+                ),
+                EndpointInfo(
+                    name="person_detail",
+                    path="/api/v1/persons/{person_id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="person_id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_list_endpoint_uses_many_true(self, collection_spec, tmp_path):
+        gen = ClientGenerator(collection_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert (
+            'PersonsResponseSchema(many=True).load(response.json()["results"])'
+            in v1_source
+        )
+
+    def test_detail_endpoint_uses_single_load(self, collection_spec, tmp_path):
+        gen = ClientGenerator(collection_spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "PersonsResponseSchema().load(response.json())" in v1_source
+
+    def test_collection_generated_code_is_valid_python(self, collection_spec, tmp_path):
+        gen = ClientGenerator(collection_spec)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+    def test_httpx_list_endpoint_uses_many_true(self, collection_spec, tmp_path):
+        gen = ClientGenerator(collection_spec, http_client="httpx")
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert (
+            'PersonsResponseSchema(many=True).load(response.json()["results"])'
+            in v1_source
+        )
+
+    def test_list_without_response_schema_returns_raw_json(self, tmp_path):
+        spec = ClientSpec(
+            name="test",
+            endpoints=[
+                EndpointInfo(
+                    name="items",
+                    path="/api/v1/items",
+                    method="GET",
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_source = (package_dir / "v1" / "client.py").read_text()
+        assert "return response.json()" in v1_source
+
+
+# ======================================================================
 # Method signatures
 # ======================================================================
 

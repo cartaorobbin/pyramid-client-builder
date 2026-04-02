@@ -28,6 +28,7 @@ from pyramid_client_builder.generator.flutter_naming import (
     to_dart_version_field,
     to_dart_version_prefix,
 )
+from pyramid_client_builder.generator.naming import is_collection_endpoint
 from pyramid_client_builder.generator.renderer import render_tree
 from pyramid_client_builder.models import ClientSpec, EndpointInfo
 
@@ -118,7 +119,7 @@ class FlutterClientGenerator:
         return output_path
 
     def _annotate_endpoints(self, endpoints: list[EndpointInfo]) -> None:
-        """Add computed ``method_name`` attribute (camelCase Dart method)."""
+        """Add computed attributes (camelCase Dart method name + collection flag)."""
         seen_names: dict[str, int] = {}
 
         for endpoint in endpoints:
@@ -130,6 +131,9 @@ class FlutterClientGenerator:
 
             method_name = base_name if count == 0 else f"{base_name}{count}"
             endpoint.method_name = method_name  # type: ignore[attr-defined]
+            endpoint.is_collection = is_collection_endpoint(  # type: ignore[attr-defined]
+                endpoint.name, endpoint.method, endpoint.path
+            )
 
     def _create_jinja_env(self) -> Environment:
         env = Environment(
@@ -201,6 +205,8 @@ def _dart_method_params_filter(endpoint: EndpointInfo) -> str:
 def _dart_return_type_filter(endpoint: EndpointInfo) -> str:
     """Return the Dart return type for an endpoint method."""
     if endpoint.response_schema:
+        if getattr(endpoint, "is_collection", False):
+            return f"List<{endpoint.response_schema.name}>"
         return endpoint.response_schema.name
     return "Map<String, dynamic>"
 
