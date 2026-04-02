@@ -1484,3 +1484,56 @@ class TestListFieldInnerType:
         for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Schema fields: Enum -> String fallback
+# ======================================================================
+
+
+class TestEnumFieldFallback:
+    """Enum schema fields without an enum class fall back to String."""
+
+    @pytest.fixture()
+    def spec_with_enum_schema_field(self):
+        schema = SchemaInfo(
+            name="EntityResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+                SchemaFieldInfo(
+                    name="origin",
+                    field_type="Enum",
+                    metadata={"description": "Entity origin"},
+                ),
+                SchemaFieldInfo(
+                    name="status",
+                    field_type="Enum",
+                    required=True,
+                ),
+            ],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="entities",
+                    path="/api/v1/entities",
+                    method="GET",
+                    response_schema=schema,
+                ),
+            ],
+        )
+
+    def test_enum_fields_become_string(self, spec_with_enum_schema_field, tmp_path):
+        gen = ClientGenerator(spec_with_enum_schema_field)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "ma.fields.String(" in source
+        assert "ma.fields.Enum(" not in source
+
+    def test_enum_fallback_is_valid_python(self, spec_with_enum_schema_field, tmp_path):
+        gen = ClientGenerator(spec_with_enum_schema_field)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
