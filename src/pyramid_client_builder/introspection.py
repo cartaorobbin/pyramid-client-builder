@@ -138,14 +138,21 @@ def _deduplicate(endpoints: list[EndpointInfo]) -> list[EndpointInfo]:
 
 
 def _collect_schemas(endpoints: list[EndpointInfo]) -> list[SchemaInfo]:
-    """Gather all unique schemas referenced by endpoints."""
+    """Gather all unique schemas referenced by endpoints.
+
+    Recursively collects nested schemas discovered by the introspector
+    (e.g. ``PhoneSchema`` inside ``PersonSchema.phones``).
+    """
     seen: set[str] = set()
     schemas: list[SchemaInfo] = []
 
     def _add(schema: SchemaInfo | None) -> None:
-        if schema is not None and schema.name not in seen:
-            seen.add(schema.name)
-            schemas.append(schema)
+        if schema is None or schema.name in seen:
+            return
+        seen.add(schema.name)
+        schemas.append(schema)
+        for nested in schema.nested_schemas:
+            _add(nested)
 
     for ep in endpoints:
         _add(ep.request_schema)

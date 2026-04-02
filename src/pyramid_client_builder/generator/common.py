@@ -93,14 +93,24 @@ def iter_schemas(endpoint: EndpointInfo):
 
 
 def collect_schemas(endpoints: list[EndpointInfo]) -> list[SchemaInfo]:
-    """Gather unique schemas referenced by endpoints (by name)."""
+    """Gather unique schemas referenced by endpoints (by name).
+
+    Recursively collects nested schemas discovered by the introspector
+    (e.g. ``PhoneSchema`` inside ``PersonSchema.phones``).
+    """
     seen: set[str] = set()
     schemas: list[SchemaInfo] = []
 
+    def _add(schema: SchemaInfo) -> None:
+        if schema.name in seen:
+            return
+        seen.add(schema.name)
+        schemas.append(schema)
+        for nested in schema.nested_schemas:
+            _add(nested)
+
     for ep in endpoints:
         for schema in iter_schemas(ep):
-            if schema.name not in seen:
-                seen.add(schema.name)
-                schemas.append(schema)
+            _add(schema)
 
     return schemas

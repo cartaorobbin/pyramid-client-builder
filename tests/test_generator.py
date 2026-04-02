@@ -1573,6 +1573,334 @@ class TestListFieldInnerType:
 
 
 # ======================================================================
+# Schema fields: Nested with schema reference
+# ======================================================================
+
+
+class TestNestedWithSchema:
+    """Nested fields with a schema reference generate ma.fields.Nested(SchemaName)."""
+
+    @pytest.fixture()
+    def spec_with_nested_ref(self):
+        phone_schema = SchemaInfo(
+            name="PhoneSchema",
+            fields=[
+                SchemaFieldInfo(name="number", field_type="String", required=True),
+                SchemaFieldInfo(name="type", field_type="String"),
+            ],
+        )
+        schema = SchemaInfo(
+            name="PersonResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+                SchemaFieldInfo(
+                    name="phone",
+                    field_type="Nested",
+                    nested_schema="PhoneSchema",
+                ),
+            ],
+            nested_schemas=[phone_schema],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="persons",
+                    path="/api/v1/persons/{id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_nested_field_references_schema(self, spec_with_nested_ref, tmp_path):
+        gen = ClientGenerator(spec_with_nested_ref)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "ma.fields.Nested(PhoneSchema)" in source
+
+    def test_nested_schema_is_generated(self, spec_with_nested_ref, tmp_path):
+        gen = ClientGenerator(spec_with_nested_ref)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class PhoneSchema(ma.Schema):" in source
+
+    def test_nested_ref_is_valid_python(self, spec_with_nested_ref, tmp_path):
+        gen = ClientGenerator(spec_with_nested_ref)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+class TestNestedManyWithSchema:
+    """Nested(many=True) generates List(Nested(SchemaName))."""
+
+    @pytest.fixture()
+    def spec_with_nested_many(self):
+        phone_schema = SchemaInfo(
+            name="PhoneSchema",
+            fields=[
+                SchemaFieldInfo(name="number", field_type="String", required=True),
+                SchemaFieldInfo(name="type", field_type="String"),
+            ],
+        )
+        schema = SchemaInfo(
+            name="PersonResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+                SchemaFieldInfo(
+                    name="phones",
+                    field_type="Nested",
+                    many=True,
+                    nested_schema="PhoneSchema",
+                ),
+            ],
+            nested_schemas=[phone_schema],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="persons",
+                    path="/api/v1/persons/{id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_nested_many_becomes_list_of_nested(self, spec_with_nested_many, tmp_path):
+        gen = ClientGenerator(spec_with_nested_many)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "ma.fields.List(ma.fields.Nested(PhoneSchema))" in source
+
+    def test_nested_many_schema_is_generated(self, spec_with_nested_many, tmp_path):
+        gen = ClientGenerator(spec_with_nested_many)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class PhoneSchema(ma.Schema):" in source
+
+    def test_nested_many_is_valid_python(self, spec_with_nested_many, tmp_path):
+        gen = ClientGenerator(spec_with_nested_many)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+class TestListNestedWithSchema:
+    """List wrapping Nested generates List(Nested(SchemaName))."""
+
+    @pytest.fixture()
+    def spec_with_list_nested(self):
+        item_schema = SchemaInfo(
+            name="ItemSchema",
+            fields=[
+                SchemaFieldInfo(name="id", field_type="Integer", required=True),
+                SchemaFieldInfo(name="label", field_type="String"),
+            ],
+        )
+        schema = SchemaInfo(
+            name="OrderResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="total", field_type="Float", required=True),
+                SchemaFieldInfo(
+                    name="items",
+                    field_type="List",
+                    nested_schema="ItemSchema",
+                ),
+            ],
+            nested_schemas=[item_schema],
+        )
+        return ClientSpec(
+            name="orders",
+            endpoints=[
+                EndpointInfo(
+                    name="orders",
+                    path="/api/v1/orders/{id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_list_nested_references_schema(self, spec_with_list_nested, tmp_path):
+        gen = ClientGenerator(spec_with_list_nested)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "ma.fields.List(ma.fields.Nested(ItemSchema))" in source
+
+    def test_list_nested_schema_is_generated(self, spec_with_list_nested, tmp_path):
+        gen = ClientGenerator(spec_with_list_nested)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class ItemSchema(ma.Schema):" in source
+
+    def test_list_nested_is_valid_python(self, spec_with_list_nested, tmp_path):
+        gen = ClientGenerator(spec_with_list_nested)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Schema fields: allow_none=True
+# ======================================================================
+
+
+class TestAllowNoneField:
+    """Fields with allow_none=True generate the allow_none kwarg."""
+
+    @pytest.fixture()
+    def spec_with_nullable_fields(self):
+        schema = SchemaInfo(
+            name="PersonResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+                SchemaFieldInfo(
+                    name="birthdate",
+                    field_type="Date",
+                    allow_none=True,
+                ),
+                SchemaFieldInfo(
+                    name="mother_name",
+                    field_type="String",
+                    allow_none=True,
+                ),
+                SchemaFieldInfo(
+                    name="is_pep",
+                    field_type="Boolean",
+                    allow_none=True,
+                ),
+            ],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="persons",
+                    path="/api/v1/persons/{id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_nullable_fields_have_allow_none(self, spec_with_nullable_fields, tmp_path):
+        gen = ClientGenerator(spec_with_nullable_fields)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "allow_none=True" in source
+        assert source.count("allow_none=True") == 3
+
+    def test_required_field_has_no_allow_none(
+        self, spec_with_nullable_fields, tmp_path
+    ):
+        gen = ClientGenerator(spec_with_nullable_fields)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        name_line = [
+            line for line in source.splitlines() if line.strip().startswith("name =")
+        ][0]
+        assert "allow_none" not in name_line
+
+    def test_allow_none_is_valid_python(self, spec_with_nullable_fields, tmp_path):
+        gen = ClientGenerator(spec_with_nullable_fields)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Schema fields: Nested schemas collected from SchemaInfo.nested_schemas
+# ======================================================================
+
+
+class TestNestedSchemasCollected:
+    """Nested schemas from SchemaInfo.nested_schemas are rendered in schemas.py."""
+
+    @pytest.fixture()
+    def spec_with_deep_nesting(self):
+        country_schema = SchemaInfo(
+            name="CountrySchema",
+            fields=[
+                SchemaFieldInfo(name="code", field_type="String", required=True),
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+            ],
+        )
+        address_schema = SchemaInfo(
+            name="AddressSchema",
+            fields=[
+                SchemaFieldInfo(name="street", field_type="String", required=True),
+                SchemaFieldInfo(
+                    name="country",
+                    field_type="Nested",
+                    nested_schema="CountrySchema",
+                ),
+            ],
+            nested_schemas=[country_schema],
+        )
+        schema = SchemaInfo(
+            name="PersonResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="name", field_type="String", required=True),
+                SchemaFieldInfo(
+                    name="addresses",
+                    field_type="Nested",
+                    many=True,
+                    nested_schema="AddressSchema",
+                ),
+            ],
+            nested_schemas=[address_schema],
+        )
+        return ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="persons",
+                    path="/api/v1/persons/{id}",
+                    method="GET",
+                    response_schema=schema,
+                    parameters=[
+                        ParameterInfo(name="id", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_all_nested_schemas_generated(self, spec_with_deep_nesting, tmp_path):
+        gen = ClientGenerator(spec_with_deep_nesting)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class PersonResponseSchema(ma.Schema):" in source
+        assert "class AddressSchema(ma.Schema):" in source
+        assert "class CountrySchema(ma.Schema):" in source
+
+    def test_deep_nesting_is_valid_python(self, spec_with_deep_nesting, tmp_path):
+        gen = ClientGenerator(spec_with_deep_nesting)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
 # Schema fields: Enum -> String fallback
 # ======================================================================
 

@@ -222,14 +222,32 @@ def _format_doc_path_filter(endpoint: EndpointInfo) -> str:
 def _field_kwargs_filter(field_info: SchemaFieldInfo) -> str:
     """Render Marshmallow field constructor arguments.
 
-    For ``List`` fields, prepends ``ma.fields.String()`` as the required
-    inner type since ``SchemaFieldInfo`` does not carry inner-field metadata.
+    Handles first positional arguments for container/nested fields:
+
+    - ``Nested`` with ``many`` + ``nested_schema`` → inner type for wrapping ``List``
+    - ``Nested`` with ``nested_schema`` → schema name as first arg
+    - ``List`` with ``nested_schema`` → ``Nested(SchemaName)`` as inner type
+    - ``List`` without ``nested_schema`` → ``String()`` fallback
     """
     parts: list[str] = []
-    if field_info.field_type == "List":
+
+    is_nested = field_info.field_type == "Nested"
+    is_list = field_info.field_type == "List"
+    has_ref = field_info.nested_schema is not None
+
+    if is_nested and field_info.many and has_ref:
+        parts.append(f"ma.fields.Nested({field_info.nested_schema})")
+    elif is_nested and has_ref:
+        parts.append(field_info.nested_schema)
+    elif is_list and has_ref:
+        parts.append(f"ma.fields.Nested({field_info.nested_schema})")
+    elif is_list:
         parts.append("ma.fields.String()")
+
     if field_info.required:
         parts.append("required=True")
+    if field_info.allow_none:
+        parts.append("allow_none=True")
     if field_info.metadata:
         parts.append(f"metadata={field_info.metadata!r}")
     return ", ".join(parts)

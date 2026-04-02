@@ -824,7 +824,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "jinja2", specifier = ">=3.0" },
     { name = "nltk", specifier = ">=3.8" },
-    { name = "pyramid-introspector", extras = ["cornice"] },
+    { name = "pyramid-introspector", extras = ["cornice"], specifier = ">=0.3.0" },
     { name = "requests", specifier = ">=2.28" },
 ]
 
@@ -845,15 +845,15 @@ dev = [
 
 [[package]]
 name = "pyramid-introspector"
-version = "0.2.1"
+version = "0.3.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyramid" },
     { name = "setuptools" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/cc/1e/791a5577ed2fe529e6ba91694fdeff40a7259cc31f8f54b9183bcc5ef052/pyramid_introspector-0.2.1.tar.gz", hash = "sha256:4aa3129b5d2d5e251433294c4ad42db128d2e94bc4ded96f5700b806c627dda7", size = 87623, upload-time = "2026-03-08T18:11:21.023Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/f6/86/69f017903c50335ac2f3d22531bc737e7d392a68074949404a3598878bab/pyramid_introspector-0.3.0.tar.gz", hash = "sha256:5051bc8967757bd1f398d796a597d739dc54364212f2e48470dd40515b60bfc2", size = 89607, upload-time = "2026-04-02T22:43:36.278Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/69/a2/11991103ebf98fcec4d4dc7ca0b228cbe7fb8692f18f07967a4b11d2bc74/pyramid_introspector-0.2.1-py3-none-any.whl", hash = "sha256:c493501323a97f9097113acba84f6a8f22d5a6db328f4bd59812db472d977175", size = 12829, upload-time = "2026-03-08T18:11:19.904Z" },
+    { url = "https://files.pythonhosted.org/packages/5a/14/f5c7777b915fbaece1ee6cae45275c49c4d5780e6c2a065486d5d684caac/pyramid_introspector-0.3.0-py3-none-any.whl", hash = "sha256:29e0bf243c0f0e3b10a5710920f254cc095b9ee4448df0141590dc4b46f35023", size = 13425, upload-time = "2026-04-02T22:43:35.228Z" },
 ]
 
 [package.optional-dependencies]
