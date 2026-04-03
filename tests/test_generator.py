@@ -1899,6 +1899,19 @@ class TestNestedSchemasCollected:
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
 
+    def test_nested_schemas_defined_before_parents(
+        self, spec_with_deep_nesting, tmp_path
+    ):
+        gen = ClientGenerator(spec_with_deep_nesting)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+
+        country_pos = source.index("class CountrySchema")
+        address_pos = source.index("class AddressSchema")
+        person_pos = source.index("class PersonResponseSchema")
+
+        assert country_pos < address_pos < person_pos
+
 
 # ======================================================================
 # Schema fields: Enum -> String fallback

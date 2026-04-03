@@ -105,9 +105,9 @@ def collect_schemas(endpoints: list[EndpointInfo]) -> list[SchemaInfo]:
         if schema.name in seen:
             return
         seen.add(schema.name)
-        schemas.append(schema)
         for nested in schema.nested_schemas:
             _add(nested)
+        schemas.append(schema)
 
     for ep in endpoints:
         for schema in iter_schemas(ep):
