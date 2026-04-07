@@ -364,3 +364,15 @@ Use this format when adding a new decision:
 **Decision**: Upgrade to `pyramid-introspector>=0.3.0`, which adds three new fields to `SchemaFieldInfo`: `allow_none` (bool), `many` (bool), and `nested_schema` (str | None). It also adds `SchemaInfo.nested_schemas` for recursively discovered nested schemas. The generator now uses these fields: `_field_kwargs_filter` emits the correct first positional argument (schema name for Nested, `Nested(SchemaName)` for List-of-Nested) and adds `allow_none=True` when set. Both `schemas.py.j2` templates branch on `field.many` and `field.nested_schema` to select the correct outer type (`List`, `Nested`, or `Dict` fallback). Schema collection in both `introspection.py` and `generator/common.py` recursively flattens `nested_schemas` so all referenced schemas are generated.
 
 **Consequences**: Generated Python clients correctly deserialize nested objects, lists of nested objects, and nullable fields. Fallback behavior is preserved: `Nested` without a schema reference still degrades to `Dict`, and `List` without a nested reference still defaults to `List(String())`. Go and Flutter generators are unaffected (they already use permissive generic types). The minimum `pyramid-introspector` version is now 0.3.0.
+
+---
+
+### 2026-04-07 — Verb-detection guard: only when path ends with the verb
+
+**Status**: Accepted (refines "NLTK WordNet for verb detection in method naming")
+
+**Context**: The verb-detection heuristic in `to_method_name` checked whether the last *segment* (after stripping path parameters) was a WordNet verb. This caused false positives for resource names that happen to also be English verbs — e.g., "parts" (to part ways), "orders" (to order), "returns" (to return). For `/api/v1/workspaces/parts/{uuid:.*}`, `_path_segments` stripped `{uuid}`, making "parts" the last segment. WordNet flagged it as a verb, producing `parts_workspace` and `parts_workspace_1` instead of `get_workspaces_part` and `delete_workspaces_part`.
+
+**Decision**: Add a structural guard to the verb-detection condition: `not _ends_with_param(path)`. The verb-action pattern (e.g., `/charges/{id}/cancel` → `cancel_charge`) always has the verb as the **last segment of the URL itself**, not just the last segment after stripping params. When the URL ends with a path parameter, the preceding segments are resource names — not verbs.
+
+**Consequences**: Resource names that are also English verbs are no longer misidentified as verb actions when they precede a path parameter. All existing verb-action patterns continue to work because their verbs are genuinely the last URL segment. The fix is a single added condition, using the existing `_ends_with_param` function.
