@@ -158,6 +158,27 @@ class TestPyramidIntrospector:
         assert custom_names.isdisjoint(standard)
 
 
+class TestRegexPathParamEndpoints:
+    """Regex path params like {uuid:.*} must survive the full pipeline."""
+
+    def test_get_and_delete_on_regex_path_both_in_spec(self, example_registry):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        regex_endpoints = [
+            ep for ep in spec.endpoints if "parts" in ep.path and "{uuid" in ep.path
+        ]
+        methods = {ep.method for ep in regex_endpoints}
+        assert "GET" in methods, f"GET missing, found: {methods}"
+        assert "DELETE" in methods, f"DELETE missing, found: {methods}"
+
+    def test_regex_path_param_not_dropped_as_wildcard(self, example_registry):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        paths = {ep.path for ep in spec.endpoints}
+        matching = [p for p in paths if "parts" in p and "uuid" in p]
+        assert len(matching) >= 1, f"No parts/uuid path found in: {paths}"
+
+
 class TestResolveBaseMarshmallowType:
 
     def test_direct_subclass(self):

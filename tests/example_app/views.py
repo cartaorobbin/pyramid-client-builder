@@ -194,5 +194,26 @@ def list_company_relationships(request):
     return {"company_relationships": []}
 
 
+# --- Cornice service with regex wildcard path param and multiple verbs ---
+
+parts_detail_service = Service(
+    name="parts_detail",
+    path="/api/v1/workspaces/parts/{uuid:.*}",
+    description="Parts detail API (regex path param with GET and DELETE)",
+)
+
+
+@parts_detail_service.get()
+def get_part(request):
+    """Get a part by UUID."""
+    return {"uuid": request.matchdict["uuid"]}
+
+
+@parts_detail_service.delete()
+def delete_part(request):
+    """Delete a part by UUID."""
+    return {"deleted": True}
+
+
 def includeme(config):
     config.scan(".")

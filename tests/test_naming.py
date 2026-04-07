@@ -258,6 +258,18 @@ class TestToMethodNameDetail:
                 r"/api/v1/companies/{uuid_or_tax_id:[^/]+}/relationships",
                 "get_companies_relationship",
             ),
+            (
+                "parts_detail",
+                "GET",
+                "/api/v1/workspaces/parts/{uuid:.*}",
+                "get_workspaces_part",
+            ),
+            (
+                "parts_detail",
+                "DELETE",
+                "/api/v1/workspaces/parts/{uuid:.*}",
+                "delete_workspaces_part",
+            ),
         ],
     )
     def test_detail_endpoints(self, route_name, method, path, expected):

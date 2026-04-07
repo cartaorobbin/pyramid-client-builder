@@ -189,7 +189,7 @@ def to_method_name(route_name: str, method: str, path: str = "") -> str:
     """
     segments = _path_segments(path) if path else []
 
-    if len(segments) >= 2 and _is_verb(segments[-1]):
+    if len(segments) >= 2 and not _ends_with_param(path) and _is_verb(segments[-1]):
         verb = segments[-1]
         resource = _find_resource_before_verb(segments)
         return f"{verb}_{resource}"

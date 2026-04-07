@@ -1150,7 +1150,11 @@ class TestStaticViewsExcluded:
 
 
 class TestRegexPathParamsPreserved:
-    """Endpoints with regex path params like {uuid:.*} must not be dropped."""
+    """Endpoints with regex path params like {uuid:.*} must not be dropped.
+
+    Both GET and DELETE on the same regex-param URL must produce separate
+    methods in the generated client with the correct HTTP verb.
+    """
 
     @pytest.fixture()
     def spec_with_regex_param(self):
@@ -1179,17 +1183,65 @@ class TestRegexPathParamsPreserved:
             ],
         )
 
-    def test_regex_param_endpoint_in_client(self, spec_with_regex_param, tmp_path):
+    def test_get_method_generated(self, spec_with_regex_param, tmp_path):
         gen = ClientGenerator(spec_with_regex_param)
         package_dir = gen.generate(tmp_path)
-        all_source = ""
-        for py_file in package_dir.rglob("*.py"):
-            all_source += py_file.read_text()
-        assert "get_part" in all_source
-        assert "delete_part" in all_source
+        v1_client = (package_dir / "v1" / "client.py").read_text()
+        assert "def get_part(self, uuid: str):" in v1_client
+
+    def test_delete_method_generated(self, spec_with_regex_param, tmp_path):
+        gen = ClientGenerator(spec_with_regex_param)
+        package_dir = gen.generate(tmp_path)
+        v1_client = (package_dir / "v1" / "client.py").read_text()
+        assert "def delete_part(self, uuid: str):" in v1_client
 
     def test_generated_files_are_valid_python(self, spec_with_regex_param, tmp_path):
         gen = ClientGenerator(spec_with_regex_param)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# End-to-end: real Pyramid app with regex path param (GET + DELETE)
+# ======================================================================
+
+
+class TestRegexPathParamEndToEnd:
+    """Full pipeline test: real Pyramid app -> introspection -> generation.
+
+    A Cornice service on /api/v1/workspaces/parts/{uuid:.*} with GET and
+    DELETE must survive the full pipeline and produce methods in the client.
+    """
+
+    def test_both_verbs_in_spec(self, example_registry):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        parts_eps = [ep for ep in spec.endpoints if "parts" in ep.path]
+        methods = {ep.method for ep in parts_eps}
+        assert methods == {"GET", "DELETE"}
+
+    def test_get_method_generated(self, example_registry, tmp_path):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_client = (package_dir / "v1" / "client.py").read_text()
+        assert "def get_workspaces_part(self, uuid: str):" in v1_client
+
+    def test_delete_method_generated(self, example_registry, tmp_path):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        v1_client = (package_dir / "v1" / "client.py").read_text()
+        assert "def delete_workspaces_part(self, uuid: str):" in v1_client
+
+    def test_generated_files_are_valid_python(self, example_registry, tmp_path):
+        introspector = PyramidIntrospector(example_registry)
+        spec = introspector.build_client_spec("example")
+        gen = ClientGenerator(spec)
         package_dir = gen.generate(tmp_path)
         for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
