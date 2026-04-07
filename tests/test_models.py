@@ -159,6 +159,42 @@ class TestEndpointInfo:
         assert ep.response_schemas[400].name == "ErrorSchema"
 
 
+class TestIsWildcard:
+    """EndpointInfo.is_wildcard must detect Pyramid wildcards, not regex params."""
+
+    def test_true_for_pyramid_wildcard(self):
+        ep = EndpointInfo(name="static", path="static/*subpath", method="GET")
+        assert ep.is_wildcard is True
+
+    def test_true_for_traverse_wildcard(self):
+        ep = EndpointInfo(name="traverse", path="/*traverse", method="GET")
+        assert ep.is_wildcard is True
+
+    def test_false_for_regex_path_param(self):
+        ep = EndpointInfo(name="part", path="/api/v1/parts/{uuid:.*}", method="GET")
+        assert ep.is_wildcard is False
+
+    def test_false_for_digit_regex_param(self):
+        ep = EndpointInfo(name="item", path="/items/{id:\\d+}", method="GET")
+        assert ep.is_wildcard is False
+
+    def test_false_for_clean_path(self):
+        ep = EndpointInfo(name="items", path="/api/v1/items", method="GET")
+        assert ep.is_wildcard is False
+
+    def test_false_for_simple_param(self):
+        ep = EndpointInfo(name="item", path="/items/{id}", method="GET")
+        assert ep.is_wildcard is False
+
+    def test_true_for_wildcard_alongside_regex_param(self):
+        ep = EndpointInfo(
+            name="mixed",
+            path="/api/{version:\\d+}/*remainder",
+            method="GET",
+        )
+        assert ep.is_wildcard is True
+
+
 class TestClientSpec:
 
     def test_settings_prefix_defaults_to_name(self):

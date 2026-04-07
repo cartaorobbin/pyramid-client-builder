@@ -67,7 +67,7 @@ class ClientGenerator:
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
 
-        endpoints = [ep for ep in self.spec.endpoints if "*" not in ep.path]
+        endpoints = [ep for ep in self.spec.endpoints if not ep.is_wildcard]
 
         versioned, unversioned = group_by_version(endpoints)
 

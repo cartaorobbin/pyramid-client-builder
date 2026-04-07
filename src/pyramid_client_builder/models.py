@@ -5,9 +5,12 @@ come from pyramid_introspector. This module defines the client-builder-specific
 models that flatten route/view pairs into endpoints and bundle them into a spec.
 """
 
+import re
 from dataclasses import dataclass, field
 
 from pyramid_introspector import ParameterInfo, SchemaInfo
+
+_PARAM_BLOCK = re.compile(r"\{[^}]*\}")
 
 
 @dataclass
@@ -23,6 +26,15 @@ class EndpointInfo:
     querystring_schema: SchemaInfo | None = None
     response_schema: SchemaInfo | None = None
     response_schemas: dict[int, SchemaInfo] = field(default_factory=dict)
+
+    @property
+    def is_wildcard(self) -> bool:
+        """True when path contains a Pyramid wildcard (``*name``).
+
+        Regex patterns inside path parameters (e.g. ``{uuid:.*}``) are
+        stripped before checking so they are not mistaken for wildcards.
+        """
+        return "*" in _PARAM_BLOCK.sub("", self.path)
 
     @property
     def path_parameters(self) -> list[ParameterInfo]:

@@ -1145,6 +1145,58 @@ class TestStaticViewsExcluded:
 
 
 # ======================================================================
+# Regex path parameters preserved (not confused with wildcards)
+# ======================================================================
+
+
+class TestRegexPathParamsPreserved:
+    """Endpoints with regex path params like {uuid:.*} must not be dropped."""
+
+    @pytest.fixture()
+    def spec_with_regex_param(self):
+        return ClientSpec(
+            name="myapp",
+            endpoints=[
+                EndpointInfo(name="home", path="/", method="GET", description="Home"),
+                EndpointInfo(
+                    name="get_part",
+                    path="/api/v1/parts/{uuid:.*}",
+                    method="GET",
+                    description="Get a part by UUID",
+                    parameters=[
+                        ParameterInfo(name="uuid", location="path"),
+                    ],
+                ),
+                EndpointInfo(
+                    name="delete_part",
+                    path="/api/v1/parts/{uuid:.*}",
+                    method="DELETE",
+                    description="Delete a part by UUID",
+                    parameters=[
+                        ParameterInfo(name="uuid", location="path"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_regex_param_endpoint_in_client(self, spec_with_regex_param, tmp_path):
+        gen = ClientGenerator(spec_with_regex_param)
+        package_dir = gen.generate(tmp_path)
+        all_source = ""
+        for py_file in package_dir.rglob("*.py"):
+            all_source += py_file.read_text()
+        assert "get_part" in all_source
+        assert "delete_part" in all_source
+
+    def test_generated_files_are_valid_python(self, spec_with_regex_param, tmp_path):
+        gen = ClientGenerator(spec_with_regex_param)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
 # Callable token provider
 # ======================================================================
 
