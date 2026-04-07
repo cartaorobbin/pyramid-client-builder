@@ -91,8 +91,10 @@ def _drop_wildcard_routes(endpoints: list[EndpointInfo]) -> list[EndpointInfo]:
 
     Pyramid uses ``*name`` for traversal and static views — these are
     never API endpoints and would produce invalid Python identifiers.
+    Regex patterns inside path parameters (e.g. ``{uuid:.*}``) are
+    preserved.
     """
-    return [ep for ep in endpoints if "*" not in ep.path]
+    return [ep for ep in endpoints if not ep.is_wildcard]
 
 
 def _drop_non_client_methods(endpoints: list[EndpointInfo]) -> list[EndpointInfo]:
