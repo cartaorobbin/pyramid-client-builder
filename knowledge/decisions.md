@@ -376,3 +376,15 @@ Use this format when adding a new decision:
 **Decision**: Add a structural guard to the verb-detection condition: `not _ends_with_param(path)`. The verb-action pattern (e.g., `/charges/{id}/cancel` → `cancel_charge`) always has the verb as the **last segment of the URL itself**, not just the last segment after stripping params. When the URL ends with a path parameter, the preceding segments are resource names — not verbs.
 
 **Consequences**: Resource names that are also English verbs are no longer misidentified as verb actions when they precede a path parameter. All existing verb-action patterns continue to work because their verbs are genuinely the last URL segment. The fix is a single added condition, using the existing `_ends_with_param` function.
+
+---
+
+### 2026-04-08 — Add Meta.unknown = INCLUDE to all generated schemas
+
+**Status**: Accepted (fixes "Generated schemas reject unknown fields from server responses")
+
+**Context**: Generated marshmallow schemas inherited the default `unknown = RAISE` behavior. When the server added new fields to API responses, the client's `schema.load()` call raised `ValidationError` for the unrecognized fields. This made clients brittle — any server-side addition broke existing clients even though the new fields were backward-compatible.
+
+**Decision**: Add `class Meta: unknown = ma.INCLUDE` to every generated schema class in both `schemas.py.j2` templates (top-level and versioned). The setting applies to all schemas, not just response schemas, because: (1) nested schemas inside responses also need it, (2) schemas can be shared across roles, (3) the template has no per-schema role info after deduplication in `collect_schemas`, and (4) `INCLUDE` has no adverse effect on request schemas using `dump()`. The `pass` statement for empty schemas (no fields) is no longer needed since `class Meta` provides a valid class body.
+
+**Consequences**: Generated clients tolerate unknown fields in API responses, making them forward-compatible with server-side additions. Unknown fields are preserved in the deserialized output (available via the dict). Empty schemas no longer emit `pass`.

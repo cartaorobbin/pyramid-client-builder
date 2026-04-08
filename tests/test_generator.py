@@ -315,12 +315,12 @@ class TestClientGeneratorWithExampleApp:
         package_dir = gen.generate(tmp_path)
         assert not (package_dir / "schemas.py").exists()
 
-    def test_empty_schema_generates_pass(self, example_spec, tmp_path):
+    def test_empty_schema_has_only_meta(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
         package_dir = gen.generate(tmp_path)
         source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class DocumentConciliateRequestSchema(ma.Schema):" in source
-        assert "    pass" in source
+        assert "    pass" not in source
 
     def test_composite_schema_generates_inner_schemas(self, example_spec, tmp_path):
         gen = ClientGenerator(example_spec)
@@ -757,14 +757,14 @@ class TestSchemaRenaming:
 
 
 # ======================================================================
-# Empty schemas (no fields → must emit ``pass``)
+# Empty schemas (no fields → class body is just Meta)
 # ======================================================================
 
 
-class TestEmptySchemaGeneratesPass:
-    """A schema with no fields must produce ``pass`` so the class body is valid."""
+class TestEmptySchemaBody:
+    """A schema with no fields still has a valid body thanks to class Meta."""
 
-    def test_empty_schema_contains_pass(self, tmp_path):
+    def test_empty_schema_has_meta(self, tmp_path):
         schema = SchemaInfo(name="EmptyRequestSchema")
         spec = ClientSpec(
             name="test",
@@ -781,7 +781,8 @@ class TestEmptySchemaGeneratesPass:
         package_dir = gen.generate(tmp_path)
         source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class EmptyRequestSchema(ma.Schema):" in source
-        assert "    pass" in source
+        assert "class Meta:" in source
+        assert "unknown = ma.INCLUDE" in source
 
     def test_empty_schema_is_valid_python(self, tmp_path):
         schema = SchemaInfo(name="EmptyRequestSchema")
@@ -824,7 +825,6 @@ class TestEmptySchemaGeneratesPass:
         package_dir = gen.generate(tmp_path)
         source = (package_dir / "v1" / "schemas.py").read_text()
         assert "class EmptyRequestSchema(ma.Schema):" in source
-        assert "    pass" in source
         assert "class ThingsResponseSchema(ma.Schema):" in source
         assert "id = ma.fields.String()" in source
         ast.parse(source, filename="schemas.py")
@@ -2068,3 +2068,124 @@ class TestEnumFieldFallback:
         for py_file in package_dir.rglob("*.py"):
             source = py_file.read_text()
             ast.parse(source, filename=str(py_file))
+
+
+# ======================================================================
+# Unknown fields tolerance (Meta.unknown = INCLUDE)
+# ======================================================================
+
+
+class TestSchemasIncludeUnknownFields:
+    """Generated schemas must set Meta.unknown = ma.INCLUDE.
+
+    Marshmallow defaults to RAISE for unknown fields, which breaks
+    clients when the server adds new response fields over time.
+    """
+
+    def test_response_schema_has_meta_unknown_include(self, tmp_path):
+        schema = SchemaInfo(
+            name="OperatorResponseSchema",
+            fields=[
+                SchemaFieldInfo(name="id", field_type="Integer"),
+                SchemaFieldInfo(name="name", field_type="String"),
+            ],
+        )
+        spec = ClientSpec(
+            name="legal_entity",
+            endpoints=[
+                EndpointInfo(
+                    name="operators",
+                    path="/api/v1/operators",
+                    method="GET",
+                    response_schema=schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class Meta:" in source
+        assert "unknown = ma.INCLUDE" in source
+
+    def test_empty_schema_has_meta_unknown_include(self, tmp_path):
+        schema = SchemaInfo(name="EmptyResponseSchema")
+        spec = ClientSpec(
+            name="test",
+            endpoints=[
+                EndpointInfo(
+                    name="things",
+                    path="/api/v1/things",
+                    method="GET",
+                    response_schema=schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert "class Meta:" in source
+        assert "unknown = ma.INCLUDE" in source
+
+    def test_nested_schema_has_meta_unknown_include(self, tmp_path):
+        phone_schema = SchemaInfo(
+            name="PhoneSchema",
+            fields=[SchemaFieldInfo(name="number", field_type="String")],
+        )
+        person_schema = SchemaInfo(
+            name="PersonResponseSchema",
+            fields=[
+                SchemaFieldInfo(
+                    name="phone",
+                    field_type="Nested",
+                    nested_schema="PhoneSchema",
+                ),
+            ],
+            nested_schemas=[phone_schema],
+        )
+        spec = ClientSpec(
+            name="contacts",
+            endpoints=[
+                EndpointInfo(
+                    name="people",
+                    path="/api/v1/people",
+                    method="GET",
+                    response_schema=person_schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        assert source.count("class Meta:") == 2
+        assert source.count("unknown = ma.INCLUDE") == 2
+
+    def test_schema_with_meta_unknown_is_valid_python(self, tmp_path):
+        schema = SchemaInfo(
+            name="WidgetResponseSchema",
+            fields=[SchemaFieldInfo(name="id", field_type="Integer")],
+        )
+        spec = ClientSpec(
+            name="widgets",
+            endpoints=[
+                EndpointInfo(
+                    name="widgets",
+                    path="/api/v1/widgets",
+                    method="GET",
+                    response_schema=schema,
+                ),
+            ],
+        )
+        gen = ClientGenerator(spec)
+        package_dir = gen.generate(tmp_path)
+        for py_file in package_dir.rglob("*.py"):
+            source = py_file.read_text()
+            ast.parse(source, filename=str(py_file))
+
+    def test_example_app_schemas_include_unknown(self, example_spec, tmp_path):
+        gen = ClientGenerator(example_spec)
+        package_dir = gen.generate(tmp_path)
+        source = (package_dir / "v1" / "schemas.py").read_text()
+        schema_count = source.count("(ma.Schema):")
+        meta_count = source.count("unknown = ma.INCLUDE")
+        assert schema_count > 0
+        assert meta_count == schema_count
