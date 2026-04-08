@@ -7,6 +7,72 @@ description: Automate the full development cycle from issue to pull request usin
 
 Guide the developer through the full cycle: issue -> branch -> plan -> implement -> PR -> release.
 
+## GitHub API Access
+
+Before performing any GitHub operations, determine which access method is available:
+
+1. **GitHub MCP** (preferred): Check if a GitHub MCP server is configured by scanning the mcps folder for a server matching `github` or containing `github` in its name. If found, verify with a `get_me` call. Note the server name for all subsequent MCP calls.
+2. **gh CLI** (fallback): Run `gh auth status` to verify authentication.
+
+If neither is available, stop and instruct the user to configure one.
+
+Also resolve `owner` and `repo` from the git remote:
+
+```bash
+git remote get-url origin
+```
+
+Parse `owner/repo` from the URL. Store these values — GitHub MCP tools require them as explicit parameters.
+
+Use the detected method consistently for all GitHub operations below. Each operation shows both methods: **MCP** first, then **CLI**.
+
+## Resume (Continuing from a Previous Chat)
+
+If resuming an in-progress workflow (the user selected "Continue current work" from the chat triage), follow these steps instead of starting from Step 1:
+
+1. Get the current branch name:
+
+```bash
+git branch --show-current
+```
+
+2. Extract the issue number from the branch name. Branches follow the pattern `<type>/<issue-number>-<slug>` (e.g., `fix/42-login-timeout` → issue `42`).
+
+3. Fetch the issue details and comments:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=issue_read
+arguments: { "owner": "<owner>", "repo": "<repo>", "issue_number": <number>, "method": "get" }
+```
+
+Then fetch comments:
+
+```
+CallMcpTool: server=github, toolName=issue_read
+arguments: { "owner": "<owner>", "repo": "<repo>", "issue_number": <number>, "method": "get_comments" }
+```
+
+**Via CLI:**
+
+```bash
+gh issue view <number> --json title,body,labels,number,comments
+```
+
+4. Search the issue comments for an **Implementation Plan**. If found:
+   - Parse the plan tasks
+   - Cross-reference with the git log (`git log main..HEAD --oneline`) to determine which tasks are likely completed
+   - Create TodoWrite entries: mark completed tasks as `completed`, set the next unfinished task to `in_progress`, rest as `pending`
+   - Tell the user what was found and which task you'll resume from
+   - Continue from **Step 5: Execute**
+
+5. If no plan is found in the comments:
+   - Tell the user the issue context and that no plan was stored yet
+   - Continue from **Step 3: Plan**
+
+---
+
 ## Step 1: Issue
 
 Use AskQuestion:
@@ -21,6 +87,15 @@ options:
 ### If the user has an issue
 
 Ask for the issue URL or number. Fetch the issue details:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=issue_read
+arguments: { "owner": "<owner>", "repo": "<repo>", "issue_number": <number>, "method": "get" }
+```
+
+**Via CLI:**
 
 ```bash
 gh issue view <number> --json title,body,labels,number
@@ -37,6 +112,15 @@ Discuss the work with the user to define:
 
 When the issue is well-defined, create it:
 
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=issue_write
+arguments: { "owner": "<owner>", "repo": "<repo>", "method": "create", "title": "<title>", "body": "<description>", "labels": ["<label1>", "<label2>"] }
+```
+
+**Via CLI:**
+
 ```bash
 gh issue create --title "<title>" --body "<description>" --label "<labels>"
 ```
@@ -46,7 +130,7 @@ Capture the issue number from the output.
 ## Step 2: Branch
 
 Determine the branch type from labels or context:
-- `bug` label -> `fix/`
+- `bug` label -> `bug/`
 - `feature` or `enhancement` label -> `feat/`
 - otherwise -> `task/`
 
@@ -57,7 +141,7 @@ git checkout -b <type>/<issue-number>-<slug>
 git push -u origin HEAD
 ```
 
-Example: `fix/42-login-timeout`
+Example: `bug/42-login-timeout`
 
 ## Step 3: Plan
 
@@ -82,6 +166,15 @@ Once the plan is approved:
 
 1. Post the plan as a comment on the issue:
 
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=add_issue_comment
+arguments: { "owner": "<owner>", "repo": "<repo>", "issue_number": <number>, "body": "## Implementation Plan\n\n<the approved plan>" }
+```
+
+**Via CLI:**
+
 ```bash
 gh issue comment <number> --body "$(cat <<'EOF'
 ## Implementation Plan
@@ -98,14 +191,34 @@ EOF
 
 Switch back to agent mode using the SwitchMode tool.
 
+### Bug fix TDD discipline
+
+If the issue has a `bug` label (or was created via the "Fix a bug" triage), apply TDD discipline during implementation:
+
+1. **Understand the bug** — extract what is happening, what should happen, and how to trigger it. Read the affected code and identify the root cause. State a hypothesis to the user before proceeding.
+2. **Write a failing test first** — the test must assert the correct/expected behavior, be minimal, and follow the project's existing test conventions. Run it and confirm it **fails on the assertion** (not on setup errors). Do not proceed to the fix until the test fails.
+3. **Make the minimal fix** — change the smallest amount of code that makes the failing test pass. Resist refactoring or improving nearby code.
+4. **Verify no regressions** — run the broader test suite for the affected module. If existing tests broke, determine whether the fix changed correct behavior or the old test was asserting buggy behavior.
+
+### Standard execution
+
 Work through the tasks sequentially:
 1. Pick the current `in_progress` task
-2. Implement the changes
+2. Implement the changes (following TDD discipline above if this is a bug fix)
 3. Run tests if applicable
 4. Mark the task as `completed` in TodoWrite
 5. Move the next task to `in_progress`
 
 After completing each task, post a progress comment on the issue:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=add_issue_comment
+arguments: { "owner": "<owner>", "repo": "<repo>", "issue_number": <number>, "body": "Completed: <task description>" }
+```
+
+**Via CLI:**
 
 ```bash
 gh issue comment <number> --body "Completed: <task description>"
@@ -118,23 +231,47 @@ Throughout execution, keep the issue and TodoWrite aligned:
 - If the plan needs adjustment mid-execution, update both the TodoWrite list and post an updated plan comment on the issue
 - If new tasks emerge, add them to both TodoWrite and the issue
 
-## Step 7: Quality Gate
+After all implementation tasks are complete, post a completion summary on the issue before proceeding.
 
-Before creating the PR, run the full quality check:
+## Step 7: Update Knowledge
+
+Before creating the PR, update the project's knowledge files:
+
+1. Check if the changes affect a feature area that has an existing `knowledge/*.md` file — if so, read the file and update any sections that are now stale. Rewrite sections to reflect the current state rather than appending notes.
+2. If a new feature area was introduced and no knowledge file exists, create one following the structure in `.cursor/rules/knowledge.mdc` (Overview, Design Decisions, API Surface, Key Learnings / Gotchas).
+3. If the changes affect the overall architecture, update `knowledge/architecture.md`.
+4. Commit knowledge updates separately:
 
 ```bash
-make check
+git add knowledge/
+git commit -m "docs: update knowledge for <feature>"
 ```
 
-This runs lint (ruff + black) and the full test suite. If anything fails, fix the issues and re-run until it passes. **Never create a PR with a failing `make check`.**
+## Step 8: Verify
 
-## Step 8: Pull Request
+Before creating the PR, run the full test suite and linter to confirm nothing is broken:
 
-When all tasks are complete and `make check` passes:
+1. Run the project's test suite (e.g., `pytest`, `go test`, `flutter test`). **All tests must pass.**
+2. Run the project's linter/formatter checks (e.g., `ruff check .`, `black --check .`).
+3. If tests or lints fail, fix the issues and re-run until green.
+4. Do **not** proceed to the PR step with failing tests.
+
+## Step 9: Pull Request
+
+When all tasks are complete and tests pass:
 
 1. Ensure all changes are committed
 2. Push the branch: `git push`
 3. Create the PR:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=create_pull_request
+arguments: { "owner": "<owner>", "repo": "<repo>", "title": "<issue-title>", "body": "## Summary\n<1-3 bullet points>\n\nCloses #<issue-number>\n\n## Test plan\n<checklist>", "head": "<branch-name>", "base": "main" }
+```
+
+**Via CLI:**
 
 ```bash
 gh pr create --title "<issue-title>" --body "$(cat <<'EOF'
@@ -150,20 +287,138 @@ EOF
 )"
 ```
 
-4. Update the project knowledge base if the work introduced any new decisions, concepts, or architectural changes:
-   - `knowledge/decisions.md` — add an ADR entry for any new architectural or design decisions
-   - `knowledge/concepts.md` — add any new domain terms, mental models, or invariants
-   - `knowledge/architecture.md` — update if the system overview or component relationships changed
+4. Tell the user the PR is ready for review and provide the PR URL.
 
-5. Tell the user the PR is ready for review and provide the PR URL.
+## Step 10: Review & Merge
 
-## Step 9: Release
+After the PR is created, use the **`AskQuestion`** tool:
+
+```
+prompt: "The PR is open. What would you like to do?"
+options:
+  - Check review status now
+  - PR is approved, please merge
+  - Come back later — I'll request a review myself
+```
+
+### If "Check review status now"
+
+1. Check CI status and review state:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=pull_request_read
+arguments: { "owner": "<owner>", "repo": "<repo>", "pullNumber": <number>, "method": "get_check_runs" }
+```
+
+```
+CallMcpTool: server=github, toolName=pull_request_read
+arguments: { "owner": "<owner>", "repo": "<repo>", "pullNumber": <number>, "method": "get_reviews" }
+```
+
+**Via CLI:**
+
+```bash
+gh pr checks
+gh pr view --json reviewDecision,reviews,statusCheckRollup
+```
+
+2. Summarize the current state:
+   - CI checks: passing / failing / pending
+   - Review status: approved / changes requested / pending / no reviewers
+
+3. **If checks pass and reviews are approved**, use **AskQuestion**:
+
+```
+prompt: "PR is approved and checks pass. Merge it?"
+options:
+  - Yes, squash and merge
+  - Yes, merge commit
+  - Yes, rebase and merge
+  - No, not yet
+```
+
+4. If the user selects a merge strategy:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=merge_pull_request
+arguments: { "owner": "<owner>", "repo": "<repo>", "pullNumber": <number>, "merge_method": "<squash|merge|rebase>" }
+```
+
+Then switch to main locally:
+
+```bash
+git checkout main && git pull
+```
+
+**Via CLI:**
+
+```bash
+gh pr merge --<strategy> --delete-branch
+git checkout main && git pull
+```
+
+5. If checks are failing or reviews are not yet approved, tell the user what is pending and suggest coming back later.
+
+### If "PR is approved, please merge"
+
+Use **AskQuestion**:
+
+```
+prompt: "Which merge strategy?"
+options:
+  - Squash and merge
+  - Merge commit
+  - Rebase and merge
+```
+
+Then merge:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=merge_pull_request
+arguments: { "owner": "<owner>", "repo": "<repo>", "pullNumber": <number>, "merge_method": "<squash|merge|rebase>" }
+```
+
+Then switch to main locally:
+
+```bash
+git checkout main && git pull
+```
+
+**Via CLI:**
+
+```bash
+gh pr merge --<strategy> --delete-branch
+git checkout main && git pull
+```
+
+### If "Come back later"
+
+Tell the user they can resume this step by asking to check the PR status or merge. End the current session here — the Release step runs after the PR is merged.
+
+## Step 11: Release
 
 > This step only applies to projects with a release flow.
 
 After the PR is merged:
 
+### 11.1 Determine the next version
+
 1. Detect the latest release tag:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=list_releases
+arguments: { "owner": "<owner>", "repo": "<repo>", "perPage": 1 }
+```
+
+**Via CLI:**
 
 ```bash
 gh release list --limit 1
@@ -176,15 +431,69 @@ gh release list --limit 1
 
    Use the issue labels and nature of changes to decide.
 
-3. Create the release:
+### 11.2 Bump the version in source files
+
+The version in source files **must** match the release tag. Skipping this step causes CI publish failures (e.g., PyPI rejects duplicate versions).
+
+1. Detect where the version is defined. Check in order:
+   - `pyproject.toml` — look for a static `version = "x.y.z"` under `[project]` or `[tool.poetry]`
+   - `version.py` or `src/<package>/__version__.py` — a standalone version file
+   - `src/<package>/__init__.py` — a `__version__` variable
+
+2. Update **all** version sources found to the new version number.
+
+3. Confirm with the user before committing:
+
+Use **AskQuestion**:
+
+```
+prompt: "Release v<new-version> (current: v<current-version>). Bump version and create release?"
+options:
+  - Yes, bump and release
+  - Change the version number
+  - Skip release for now
+```
+
+If "Change the version number", ask for the desired version. If "Skip release for now", stop here.
+
+4. Commit and push the version bump:
+
+```bash
+git add -A
+git commit -m "bump: v<version>"
+git push
+```
+
+### 11.3 Create the release
+
+> No GitHub MCP equivalent exists for release creation — use `gh` CLI regardless of the detected method.
 
 ```bash
 gh release create v<version> --generate-notes --title "v<version>"
 ```
 
-4. Tell the user the release has been created and provide the URL.
+### 11.4 Verify the release pipeline
 
-## Step 10: End
+After creating the release, check that the triggered CI workflow succeeds:
+
+**Via MCP:**
+
+```
+CallMcpTool: server=github, toolName=actions_list
+arguments: { "owner": "<owner>", "repo": "<repo>", "method": "list_workflow_runs", "per_page": 1 }
+```
+
+**Via CLI:**
+
+```bash
+gh run list --limit 1 --json name,status,conclusion,url
+```
+
+If the workflow is still running, wait and re-check. If it fails, tell the user immediately with the run URL — do not wait for them to discover it.
+
+Tell the user the release has been created and whether the publish pipeline succeeded.
+
+## Step 12: End
 
 Summarize what was accomplished:
 - Issue number and title

@@ -1,28 +1,38 @@
 ---
-description: Directs the AI to use the knowledge/ directory for project context
 alwaysApply: true
 ---
 
-# Project Knowledge Base
+# Knowledge Directory
 
-This project maintains a `knowledge/` directory with context for AI assistants.
+The `knowledge/` directory contains AI-facing living documentation — one markdown file per feature area describing its current state, design decisions, API surface, and gotchas.
 
-## Before making design or architectural decisions
+## Two Audiences
 
-Read these files for context:
+- **`docs/` and `README.md`** are for humans — developers, users, contributors. Focus on clarity, examples, and getting-started guidance.
+- **`knowledge/`** is for the AI — the agent reads these files to understand the codebase. Focus on precision, design decisions, API surface, gotchas, and non-obvious learnings. Conciseness matters more than prose quality.
+- Both must stay in sync. When a feature changes, update both.
 
-- `knowledge/architecture.md` — system overview, components, and data flow
-- `knowledge/decisions.md` — past architectural decisions and their rationale
-- `knowledge/concepts.md` — domain terminology, mental models, and invariants
+## Structure
 
-## When new decisions are made
+One markdown file per feature area (e.g., `knowledge/auth.md`, `knowledge/billing.md`, `knowledge/architecture.md`). Each file follows a consistent structure:
 
-Update `knowledge/decisions.md` with a new entry following the ADR template in that file.
+1. **Overview** — What this area does, in one or two sentences.
+2. **Design Decisions** — Why it works the way it does. Trade-offs, constraints, alternatives considered.
+3. **API Surface** — Key classes, functions, types, and their relationships.
+4. **Key Learnings / Gotchas** — Non-obvious behaviors, edge cases, things that broke before.
 
-## When new domain concepts emerge
+## When to Update
 
-Update `knowledge/concepts.md` with new terms, mental models, or invariants.
+- After completing a new feature — create or extend the relevant file.
+- After fixing a significant bug that revealed something non-obvious — add to Key Learnings.
+- After making an architectural change — update the affected files.
 
-## Important
+## What Does NOT Belong
 
-The `knowledge/` directory is for AI context. Human-facing documentation belongs in `docs/`.
+- Task lists, progress tracking, or backlog items.
+- Changelogs or timestamps — knowledge files describe the present, not the history.
+- Documentation for end users — that lives in `docs/`.
+
+## Reading Before Writing
+
+Before making changes to a feature area, read the relevant `knowledge/*.md` file first. It contains context that may affect your approach.

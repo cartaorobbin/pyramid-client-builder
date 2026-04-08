@@ -1,17 +1,49 @@
 ---
-description: Ensures the dev-workflow skill is considered at the start of every chat
+description: Ask the user at the start of every new chat whether to follow the development workflow
 alwaysApply: true
 ---
 
-# Dev Workflow Check
+# Dev Workflow Activation
 
-At the start of every new conversation, **always** ask the user whether this work should follow the dev-workflow skill.
+At the **very beginning** of every new chat, before doing anything else, check for in-progress work:
 
-Use AskQuestion:
+1. Run `git branch --show-current`
+2. If the branch is **not** `main`, `master`, `develop`, or `staging`, use the **Resume-Aware Triage**.
+3. Otherwise, use the **Standard Triage**.
 
+## Standard Triage
 
-If the user says yes, read and follow `.cursor/skills/dev-workflow/SKILL.md` **before** doing anything else.
+Use the `AskQuestion` tool:
 
-If the user says no, proceed normally.
+title: "Dev Workflow"
+prompt: "Should this chat follow the dev workflow?"
+options:
+  - id: yes
+    label: "Yes — follow dev workflow (planning, branching, PRs)"
+  - id: fix
+    label: "Fix a bug (TDD approach — failing test first, then fix)"
+  - id: no
+    label: "No — skip workflow"
 
-**Never skip this question. Never try to auto-detect. Always ask.**
+If the user selects **yes**, read and follow `.cursor/skills/dev-workflow/SKILL.md` from Step 1.
+If the user selects **fix**, read and follow `.cursor/skills/dev-workflow/SKILL.md` from Step 1, auto-applying the `bug` label to the issue. TDD discipline is enforced during implementation (write a failing test before fixing).
+
+## Resume-Aware Triage
+
+Use the `AskQuestion` tool, including the detected branch name:
+
+title: "Dev Workflow"
+prompt: "You're on branch `<branch-name>`. Want to continue this work or start something new?"
+options:
+  - id: continue
+    label: "Continue current work (resume dev workflow on this branch)"
+  - id: yes
+    label: "Start a new dev workflow (different issue)"
+  - id: fix
+    label: "Fix a bug (TDD approach — failing test first, then fix)"
+  - id: no
+    label: "No — skip workflow"
+
+If the user selects **continue**, read `.cursor/skills/dev-workflow/SKILL.md` and follow its **Resume** section.
+If the user selects **yes**, read and follow `.cursor/skills/dev-workflow/SKILL.md` from Step 1.
+If the user selects **fix**, read and follow `.cursor/skills/dev-workflow/SKILL.md` from Step 1, auto-applying the `bug` label to the issue. TDD discipline is enforced during implementation (write a failing test before fixing).
